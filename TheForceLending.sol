@@ -1,26 +1,26 @@
-pragma solidity >=0.4.23;
+pragma solidity ^0.4.24;
 
 contract SafeMath {
-  function safeMul(uint a, uint b) internal returns (uint) {
+  function safeMul(uint a, uint b) pure internal returns (uint) {
     uint c = a * b;
     assert(a == 0 || c / a == b);
     return c;
   }
 
-  function safeSub(uint a, uint b) internal returns (uint) {
+  function safeSub(uint a, uint b) pure internal returns (uint) {
     assert(b <= a);
     return a - b;
   }
 
-  function safeAdd(uint a, uint b) internal returns (uint) {
+  function safeAdd(uint a, uint b) pure internal returns (uint) {
     uint c = a + b;
     assert(c>=a && c>=b);
     return c;
   }
 
-  function assert(bool assertion) internal {
-    if (!assertion) throw;
-  }
+//   function assert(bool assertion) internal {
+//     if (!assertion) revert("assert failed");
+//   }
 }
 
 contract EIP20Interface {
@@ -69,7 +69,112 @@ contract EIP20Interface {
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 }
 
-contract TheForceLending is SafeMath {
+contract ErrorReporter {
+
+    /**
+      * @dev `error` corresponds to enum Error; `info` corresponds to enum FailureInfo, and `detail` is an arbitrary
+      * contract-specific code that enables us to report opaque error codes from upgradeable contracts.
+      **/
+    event Failure(uint error);
+
+    enum Error {
+        NO_ERROR,
+        INVALIDE_ADMIN,
+        WITHDRAW_TOKEN_AMOUNT_ERROR,
+        WITHDRAW_TOKEN_TRANSER_ERROR,
+        TOKEN_INSUFFICIENT_ALLOWANCE,
+        TOKEN_INSUFFICIENT_BALANCE,
+        TRANSFER_FROM_ERROR,
+        LENDER_INSUFFICIENT_BORROW_ALLOWANCE,
+        LENDER_INSUFFICIENT_BORROWER_BALANCE,
+        LENDER_TRANSFER_FROM_BORROW_ERROR,
+        LENDER_INSUFFICIENT_ADMIN_ALLOWANCE,
+        LENDER_INSUFFICIENT_ADMIN_BALANCE,
+        LENDER_TRANSFER_FROM_ADMIN_ERROR,
+        CALL_MARGIN_ALLOWANCE_ERROR,
+        CALL_MARGIN_BALANCE_ERROR,
+        CALL_MARGIN_TRANSFER_ERROR,
+        REPAY_ALLOWANCE_ERROR,
+        REPAY_BALANCE_ERROR,
+        REPAY_TX_ERROR,
+        FORCE_REPAY_ALLOWANCE_ERROR,
+        FORCE_REPAY_BALANCE_ERROR,
+        FORCE_REPAY_TX_ERROR,
+        CLOSE_POSITION_ALLOWANCE_ERROR,
+        CLOSE_POSITION_TX_ERROR,
+        CLOSE_POSITION_MUST_ADMIN_BEFORE_DEADLINE,
+        CLOSE_POSITION_MUST_ADMIN_OR_LENDER_AFTER_DEADLINE,
+        LENDER_TEST_TRANSFER_ADMIN_ERROR,
+        LENDER_TEST_TRANSFER_BORROWR_ERROR,
+        LENDER_TEST_TRANSFERFROM_ADMIN_ERROR,
+        LENDER_TEST_TRANSFERFROM_BORROWR_ERROR,
+        SEND_TOKEN_AMOUNT_ERROR,
+        SEND_TOKEN_TRANSER_ERROR
+    }
+
+    /**
+      * @dev use this when reporting a known error from the money market or a non-upgradeable collaborator
+      */
+    function fail(Error err) internal returns (uint) {
+        emit Failure(uint(err));
+
+        return uint(err);
+    }
+}
+
+library ERC20AsmFn {
+
+    function isContract(address addr) internal {
+        assembly {
+            if iszero(extcodesize(addr)) { revert(0, 0) }
+        }
+    }
+
+    function handleReturnData() internal returns (bool result) {
+        assembly {
+            switch returndatasize()
+            case 0 { // not a std erc20
+                result := 1
+            }
+            case 32 { // std erc20
+                returndatacopy(0, 0, 32)
+                result := mload(0)
+            }
+            default { // anything else, should revert for safety
+                revert(0, 0)
+            }
+        }
+    }
+
+    function asmTransfer(address _erc20Addr, address _to, uint256 _value) internal returns (bool result) {
+
+        // Must be a contract addr first!
+        isContract(_erc20Addr);
+
+        // call return false when something wrong
+        require(_erc20Addr.call(bytes4(keccak256("transfer(address,uint256)")), _to, _value), "asmTransfer error");
+
+        // handle returndata
+        return handleReturnData();
+    }
+
+    function asmTransferFrom(address _erc20Addr, address _from, address _to, uint256 _value) internal returns (bool result) {
+
+        // Must be a contract addr first!
+        isContract(_erc20Addr);
+
+        // call return false when something wrong
+        require(_erc20Addr.call(bytes4(keccak256("transferFrom(address,address,uint256)")), _from, _to, _value), "asmTransferFrom error");
+
+        // handle returndata
+        return handleReturnData();
+    }
+
+}
+
+contract TheForceLending is SafeMath, ErrorReporter {
+  using ERC20AsmFn for EIP20Interface;
+
   enum OrderState {
     ORDER_STATUS_PENDING,
     ORDER_STATUS_ACCEPTED
@@ -79,12 +184,12 @@ contract TheForceLending is SafeMath {
     bytes32 tx_id;
     uint deadline;
     OrderState state;
-    
+
     address borrower;
     address lender;
 
     uint lending_cycle;
-    
+
     address token_get;
     uint amount_get;
 
@@ -103,83 +208,91 @@ contract TheForceLending is SafeMath {
   mapping (address => mapping (address => uint)) public tokens; //mapping of token addresses to mapping of account balances (token=0 means Ether)
   mapping (address => mapping(bytes32 => Order_t)) public orderBook;// address->hash->order_t
 
-  event Borrow(address tokenGet, 
-                  uint amountGet, 
-                  address tokenGive, 
+  event Borrow(address tokenGet,
+                  uint amountGet,
+                  address tokenGive,
                   uint amountGive,
-                  uint nonce, 
+                  uint nonce,
                   uint lendingCycle,
                   uint pledgeRate,
                   uint interestRate,
                   uint feeRate,
-                  address user);
-  event Lend(address borrower, bytes32 txId, address token, uint amount, address give);//txId为借款单txId
-  event CancelOrder(address borrower, bytes32 txId, address by);//取消借款单，只能被borrower或者合约取消
-  event Callmargin(address borrower, bytes32 txId, address token, uint amount, address by);
-  event Repay(address borrower, bytes32 txId, address token, uint amount, address by);
-  event Closepstion(address borrower, bytes32 txId, address token, address by);
-  event Forcerepay(address borrower, bytes32 txId, address token, address by);
-  event Cancel(address borrower, address tokenGet, uint amountGet, address tokenGive, uint amountGive, uint expires, uint nonce, address user, uint8 v, bytes32 r, bytes32 s);
-  event Deposit(address token, address user, uint amount, uint balance);
-  event Withdraw(address token, address user, uint amount, uint balance);
+                  address user,
+                  bytes32 hash,
+                  uint status);
+  event Lend(address borrower, bytes32 txId, address token, uint amount, address give, uint status);//txId为借款单txId
+  event CancelOrder(address borrower, bytes32 txId, address by, uint status);//取消借款单，只能被borrower或者合约取消
+  event Callmargin(address borrower, bytes32 txId, address token, uint amount, address by, uint status);
+  event Repay(address borrower, bytes32 txId, address token, uint amount, address by, uint status);
+  event Closepstion(address borrower, bytes32 txId, address token, address by, uint status);
+  event Forcerepay(address borrower, bytes32 txId, address token, address by, uint status);
 
-  function TheForceLending(address admin_, address feeAccount_) public payable {
+
+  constructor(address admin_, address feeAccount_) public {
     admin = admin_;
     feeAccount = feeAccount_;
   }
 
-  function() payable {
-    throw;
+  function() public payable {
+    revert("fallback can't be payable");
  }
 
-  function changeAdmin(address admin_) {
-    if (msg.sender != admin) throw;
+  function changeAdmin(address admin_) public returns (uint){
+    if (msg.sender != admin) {
+        return fail(Error.INVALIDE_ADMIN);
+    }
     admin = admin_;
+
+    return 0;
   }
 
 
-  function changeFeeAccount(address feeAccount_) {
-    if (msg.sender != admin) throw;
+  function changeFeeAccount(address feeAccount_) public returns (uint){
+    if (msg.sender != admin) {
+        return fail(Error.INVALIDE_ADMIN);
+    }
     feeAccount = feeAccount_;
+    fail(Error.NO_ERROR);
+    return 0;
   }
 
-  function deposit() payable {
-    tokens[0][msg.sender] = safeAdd(tokens[0][msg.sender], msg.value);
-    Deposit(0, msg.sender, msg.value, tokens[0][msg.sender]);
-  }
-
-  function withdraw(uint amount) {
-    if (tokens[0][msg.sender] < amount) throw;
-    tokens[0][msg.sender] = safeSub(tokens[0][msg.sender], amount);
-    if (!msg.sender.call.value(amount)()) throw;
-    Withdraw(0, msg.sender, amount, tokens[0][msg.sender]);
-  }
   
-  function depositToken(address token, uint amount) {
+  function depositToken(address token, uint amount) internal returns (uint){
     //remember to call Token(address).approve(this, amount) or this contract will not be able to do the transfer on your behalf.
-    if (token==0) throw;
+   if (token==0) revert("invalid token address!");
 
     if (EIP20Interface(token).allowance(msg.sender, address(this)) < amount) {
-        throw;
+        return fail(Error.TOKEN_INSUFFICIENT_ALLOWANCE);
+    }
+    
+    if (EIP20Interface(token).balanceOf(msg.sender) < amount) {
+        return fail(Error.TOKEN_INSUFFICIENT_ALLOWANCE);
     }
 
 
-    if (!EIP20Interface(token).transferFrom(msg.sender, address(this), amount)) {
-        throw;
+    if (!EIP20Interface(token).asmTransferFrom(msg.sender, address(this), amount)) {
+        return fail(Error.TRANSFER_FROM_ERROR);
     }
     tokens[token][msg.sender] = safeAdd(tokens[token][msg.sender], amount);
-    Deposit(token, msg.sender, amount, tokens[token][msg.sender]);
-  }
-  
-  function withdrawToken(address token, uint amount) {
-    if (token==0) throw;
-    if (tokens[token][msg.sender] < amount) throw;
-    tokens[token][msg.sender] = safeSub(tokens[token][msg.sender], amount);
-    if (!EIP20Interface(token).transfer(msg.sender, amount)) throw;
-    Withdraw(token, msg.sender, amount, tokens[token][msg.sender]);
+
+    
+    return 0;
   }
 
-  function balanceOf(address token, address user) constant returns (uint) {
+  function withdrawToken(address token, uint amount) internal returns (uint) {
+    if (token==0) revert("invalid token address");
+    if (tokens[token][msg.sender] < amount) {
+        return fail(Error.WITHDRAW_TOKEN_AMOUNT_ERROR);
+    }
+    tokens[token][msg.sender] = safeSub(tokens[token][msg.sender], amount);
+    if (!EIP20Interface(token).asmTransfer(msg.sender, amount)) {
+        return fail(Error.WITHDRAW_TOKEN_TRANSER_ERROR);
+    }
+
+    return 0;
+  }
+
+  function balanceOf(address token, address user) public view returns (uint) {
     return tokens[token][user];
   }
 
@@ -187,15 +300,16 @@ contract TheForceLending is SafeMath {
                   uint amountGet, //借出币种数量
                   address tokenGive, //抵押币种地址
                   uint amountGive,//抵押币种数量
-                  uint nonce, 
+                  uint nonce,
                   uint lendingCycle,
                   uint pledgeRate,
                   uint interestRate,
-                  uint feeRate) {
-    bytes32 hash = sha256(this, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
+                  uint feeRate) public returns (bytes32 txId){
+    bytes32 txid = hash(tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
+    uint status = 0;
 
-    orderBook[msg.sender][hash] = Order_t({
-      tx_id: hash,
+    orderBook[msg.sender][txid] = Order_t({
+      tx_id: txid,
       deadline: 0,
       state: OrderState.ORDER_STATUS_PENDING,
       borrower: msg.sender,
@@ -207,133 +321,190 @@ contract TheForceLending is SafeMath {
       amount_pledge: amountGive,
       _nonce: nonce,
       pledge_rate: pledgeRate,
-      interest_rate: interestRate, 
+      interest_rate: interestRate,
       fee_rate: feeRate
     });
-    depositToken(tokenGive, amountGive);
 
-    Borrow(tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate, msg.sender);
+    status = depositToken(tokenGive, amountGive);
+
+    emit Borrow(tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate, msg.sender, txid, status);
+    return txid;
   }
 
-  function lend(address borrower, bytes32 hash, address token, uint amount, uint feeAmount) {
-    require(orderBook[borrower][hash].borrower != address(0));//order not found
-    require(orderBook[borrower][hash].borrower != msg.sender);//cannot lend to self
-    require(orderBook[borrower][hash].token_get == token);//attempt to use an invalid type of token
-    require(orderBook[borrower][hash].amount_get == amount - feeAmount);//单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人
+  function lend(address borrower, bytes32 hash, address token, uint amount, uint feeAmount) public returns (uint) {
+    require(orderBook[borrower][hash].borrower != address(0), "order not found");//order not found
+    require(orderBook[borrower][hash].borrower != msg.sender, "cannot lend to self");//cannot lend to self
+    require(orderBook[borrower][hash].token_get == token, "attempt to use an invalid type of token");//attempt to use an invalid type of token
+    require(orderBook[borrower][hash].amount_get == amount - feeAmount, "amount_get != amount - feeAmount");//单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人
+    require(orderBook[borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != OrderState.ORDER_STATUS_PENDING");
+    uint status = 0;
 
-    orderBook[borrower][hash].deadline = now + orderBook[borrower][hash].lending_cycle * (1 days);
-    orderBook[borrower][hash].lender = msg.sender;
-    orderBook[borrower][hash].state = OrderState.ORDER_STATUS_ACCEPTED;
-    
-    if (EIP20Interface(token).allowance(msg.sender, orderBook[borrower][hash].borrower) < amount) {
-        throw;
-    }
-    EIP20Interface(token).transferFrom(msg.sender, orderBook[borrower][hash].borrower, amount);
-    
-    if (EIP20Interface(token).allowance(msg.sender, feeAccount) < feeAmount) {
-        throw;
-    }
-    EIP20Interface(token).transferFrom(msg.sender, feeAccount, feeAmount);
-
-
-    Lend(borrower, hash, token, amount, msg.sender);
-  }
-
-  function cancelOrder(address borrower, bytes32 hash) {
-    require(orderBook[borrower][hash].borrower != address(0));//order not found
-    require(orderBook[borrower][hash].borrower == msg.sender || address(this) == msg.sender);//only borrower or contract can do this operation
-    
-    if (EIP20Interface(orderBook[borrower][hash].token_pledge).allowance(address(this), orderBook[borrower][hash].borrower) < orderBook[borrower][hash].amount_pledge) {
-        throw;
-    }
-    
-    address token = orderBook[borrower][hash].token_pledge;
-    
-    tokens[token][borrower] = safeSub(tokens[token][borrower], orderBook[borrower][hash].amount_pledge);
-    
-    EIP20Interface(orderBook[borrower][hash].token_pledge).transferFrom(address(this), orderBook[borrower][hash].borrower, orderBook[borrower][hash].amount_pledge);
-
-    delete orderBook[borrower][hash];
-
-    CancelOrder(borrower, hash, msg.sender);
-  }
-
-  function callmargin(address borrower, bytes32 hash, address token, uint amount) {
-    require(orderBook[borrower][hash].borrower != address(0));
-    require(amount > 0);
-    require(token != address(0));
-    require(orderBook[borrower][hash].state == OrderState.ORDER_STATUS_PENDING);
-    require(orderBook[borrower][hash].token_pledge == token);
-    
     if (EIP20Interface(token).allowance(msg.sender, address(this)) < amount) {
-        throw;
+        status = uint(Error.TOKEN_INSUFFICIENT_ALLOWANCE);
+    }
+    if (status == 0 && EIP20Interface(token).balanceOf(msg.sender) < amount) {
+        status = uint(Error.LENDER_INSUFFICIENT_BORROWER_BALANCE);
+    }
+    if (status == 0 && !EIP20Interface(token).asmTransferFrom(msg.sender, orderBook[borrower][hash].borrower, orderBook[borrower][hash].amount_get)) {
+        status = uint(Error.LENDER_TRANSFER_FROM_BORROW_ERROR);
     }
 
-    orderBook[borrower][hash].amount_pledge += amount;
-    tokens[token][borrower] = safeAdd(tokens[token][borrower], amount);
+    if (status == 0 && EIP20Interface(token).allowance(msg.sender, address(this)) < feeAmount) {
+        status = uint(Error.LENDER_INSUFFICIENT_ADMIN_ALLOWANCE);
+    }
+    if (status == 0 && EIP20Interface(token).balanceOf(msg.sender) < feeAmount) {
+        status = uint(Error.LENDER_INSUFFICIENT_ADMIN_BALANCE);
+    }
+    if (status == 0 && !EIP20Interface(token).asmTransferFrom(msg.sender, feeAccount, feeAmount)) {
+        status = uint(Error.LENDER_TRANSFER_FROM_ADMIN_ERROR);
+    }
+    
+    if (status == 0) {
+        orderBook[borrower][hash].deadline = now + orderBook[borrower][hash].lending_cycle * (1 minutes);
+        orderBook[borrower][hash].lender = msg.sender;
+        orderBook[borrower][hash].state = OrderState.ORDER_STATUS_ACCEPTED;       
+    }
 
-    EIP20Interface(token).transferFrom(msg.sender, address(this), amount);
-
-    Callmargin(borrower, hash, token, amount, msg.sender);
+    emit Lend(borrower, hash, token, amount, msg.sender, status);
+    return 0;
   }
 
-  function repay(address borrower, bytes32 hash, address token, uint amount) {
-    require(orderBook[borrower][hash].borrower != address(0));
-    require(orderBook[borrower][hash].state == OrderState.ORDER_STATUS_PENDING);
-    require(token != address(0));
-    require(token == orderBook[borrower][hash].token_get);
-    require(amount > orderBook[borrower][hash].amount_get);
-    
-    if (EIP20Interface(token).allowance(msg.sender, orderBook[borrower][hash].lender) < orderBook[borrower][hash].amount_get) {
-        throw;
-    }
-    
-    if (EIP20Interface(orderBook[borrower][hash].token_pledge).allowance(address(this), orderBook[borrower][hash].borrower) < orderBook[borrower][hash].amount_pledge) {
-        throw;
-    }
-    
-    tokens[token][borrower] = safeSub(tokens[token][borrower], orderBook[borrower][hash].amount_get);
-    EIP20Interface(token).transferFrom(msg.sender, orderBook[borrower][hash].lender, amount);
-    
-    EIP20Interface(orderBook[borrower][hash].token_pledge).transferFrom(address(this), orderBook[borrower][hash].borrower, orderBook[borrower][hash].amount_pledge);
+  function cancelOrder(address borrower, bytes32 hash) public {
+    require(orderBook[borrower][hash].borrower != address(0), "order not found");//order not found
+    require(orderBook[borrower][hash].borrower == msg.sender || msg.sender == admin,
+      "only borrower or admin can do this operation");//only borrower or contract can do this operation
+    require(orderBook[borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != OrderState.ORDER_STATUS_PENDING");
+    uint status = 0;
 
-    delete orderBook[borrower][hash];
+    status = withdrawToken(orderBook[borrower][hash].token_pledge, orderBook[borrower][hash].amount_pledge);
 
-    Repay(borrower, hash, token, amount, msg.sender);
+    if (status == 0) {
+        delete orderBook[borrower][hash];
+    }
+
+    emit CancelOrder(borrower, hash, msg.sender, status);
   }
 
-  function forcerepay(address borrower, bytes32 hash, address token) {
-    require(orderBook[borrower][hash].borrower != address(0));
-    require(token != address(0));
-    require(token == orderBook[borrower][hash].token_pledge);
-    
-    if (EIP20Interface(token).allowance(address(this), orderBook[borrower][hash].lender) < orderBook[borrower][hash].amount_pledge) {
-        throw;
+  function callmargin(address borrower, bytes32 hash, address token, uint amount) public returns (uint){
+    require(orderBook[borrower][hash].borrower != address(0), "order not found");
+    require(amount > 0, "amount must >0");
+    require(token != address(0), "invalid token");
+    require(orderBook[borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    require(orderBook[borrower][hash].token_pledge == token, "invalid pledge token");
+    uint status = 0;
+
+    if (status == 0 && EIP20Interface(token).allowance(msg.sender, address(this)) < amount) {
+        status = uint(Error.CALL_MARGIN_ALLOWANCE_ERROR);
     }
+    
+    if (status == 0) {
+        orderBook[borrower][hash].amount_pledge += amount;
+        tokens[token][borrower] = safeAdd(tokens[token][borrower], amount);     
+    }
+    
+    if (status == 0 && EIP20Interface(token).balanceOf(msg.sender) < amount) {
+        status = uint(Error.CALL_MARGIN_BALANCE_ERROR);
+    }
+
+    if (status == 0 && !EIP20Interface(token).asmTransferFrom(msg.sender, address(this), amount)) {
+        status = uint(Error.CALL_MARGIN_TRANSFER_ERROR);
+    }
+
+    emit Callmargin(borrower, hash, token, amount, msg.sender, status);
+    return 0;
+  }
+
+  function repay(address borrower, bytes32 hash, address token, uint amount) public returns (uint){
+    require(orderBook[borrower][hash].borrower != address(0), "order not found");
+    require(orderBook[borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    require(token != address(0), "invalid token");
+    require(token == orderBook[borrower][hash].token_get, "invalid repay token");
+    require(amount > orderBook[borrower][hash].amount_get, "invalid reapy amount");//还款数量，为借款数量加上利息
+    require(msg.sender == orderBook[borrower][hash].borrower, "invalid repayer, must be borrower");
+    uint status = 0;
+
+    //允许contract花费借款者的所借的token+利息token
+    if (status == 0 && EIP20Interface(token).allowance(msg.sender, address(this)) < amount) {
+        status = uint(Error.REPAY_ALLOWANCE_ERROR);
+    }
+    
+    if (status == 0 && EIP20Interface(token).balanceOf(msg.sender) < amount) {
+        status = uint(Error.REPAY_BALANCE_ERROR);
+    }
+
+    if (status == 0 && !EIP20Interface(token).asmTransferFrom(msg.sender, orderBook[borrower][hash].lender, amount)) {
+        status = uint(Error.REPAY_TX_ERROR);
+    }
+
+    status = withdrawToken(orderBook[borrower][hash].token_pledge, orderBook[borrower][hash].amount_pledge);
+    if (status == 0) {
+        delete orderBook[borrower][hash];        
+    }
+
+    emit Repay(borrower, hash, token, amount, msg.sender, status);
+
+    return status;
+  }
+
+  //逾期强制归还，由合约管理者调用，非borrower，非lender调用
+  function forcerepay(address borrower, bytes32 hash, address token) public returns (uint){
+    require(orderBook[borrower][hash].borrower != address(0), "order not found");
+    require(token != address(0), "invalid forcerepay token address");
+    require(token == orderBook[borrower][hash].token_pledge, "invalid forcerepay token");
+    require(orderBook[borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    require(msg.sender == admin, "forcerepay must be admin");
+    require(now > orderBook[borrower][hash].deadline, "cannot forcerepay before deadline");
+    uint status = 0;
 
     tokens[token][borrower] = safeSub(tokens[token][borrower], orderBook[borrower][hash].amount_pledge);
-    EIP20Interface(token).transferFrom(address(this), orderBook[borrower][hash].lender, orderBook[borrower][hash].amount_pledge);//合约发送抵押资产到出借人
+    if (!EIP20Interface(token).transfer(orderBook[borrower][hash].lender, orderBook[borrower][hash].amount_pledge)) {
+        status = uint(Error.FORCE_REPAY_TX_ERROR);
+    }//合约管理员发送抵押资产到出借人
 
-    delete orderBook[borrower][hash];
-
-    Forcerepay(borrower, hash, token, address(this));
-  }
-
-  function closepstion(address borrower, bytes32 hash, address token) {
-    require(orderBook[borrower][hash].borrower != address(0));
-    require(token != address(0));
-    require(token == orderBook[borrower][hash].token_pledge);
-    
-    if (EIP20Interface(token).allowance(address(this), orderBook[borrower][hash].lender) < orderBook[borrower][hash].amount_pledge) {
-        throw;
+    if (status == 0) {
+        delete orderBook[borrower][hash];       
     }
 
-    tokens[token][borrower] = safeSub(tokens[token][borrower], orderBook[borrower][hash].amount_pledge);
-    EIP20Interface(token).transferFrom(address(this), orderBook[borrower][hash].lender, orderBook[borrower][hash].amount_pledge);//合约发送抵押资产到出借人
+    emit Forcerepay(borrower, hash, token, msg.sender, status);
+    return status;
+  }
 
-    delete orderBook[borrower][hash];
+  //价格波动平仓
+  function closepstion(address borrower, bytes32 hash, address token) public returns (uint){
+    require(orderBook[borrower][hash].borrower != address(0), "order not found");
+    require(token != address(0), "invalid token");
+    require(token == orderBook[borrower][hash].token_pledge, "invalid token");
+    require(orderBook[borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    require(msg.sender == admin, "closepstion must be admin");
+    uint status = 0;
 
-    Closepstion(borrower, hash, token, address(this));
+    //未逾期
+    if (orderBook[borrower][hash].deadline > now) {
+      if (msg.sender != admin) {
+        //only admin of this contract can do this operation before deadline
+        status = uint(Error.CLOSE_POSITION_MUST_ADMIN_BEFORE_DEADLINE);
+      }
+    } else {
+      if (!(msg.sender == admin || msg.sender == orderBook[borrower][hash].lender)) {
+        //only lender or admin of this contract can do this operation
+        status = uint(Error.CLOSE_POSITION_MUST_ADMIN_OR_LENDER_AFTER_DEADLINE);
+      }
+    }
+    if (status == 0) {
+        tokens[token][borrower] = safeSub(tokens[token][borrower], orderBook[borrower][hash].amount_pledge);
+        if (!EIP20Interface(token).transfer(orderBook[borrower][hash].lender, orderBook[borrower][hash].amount_pledge)) {
+    	    status = uint(Error.CLOSE_POSITION_TX_ERROR);
+        }//合约管理员或者lender发送抵押资产到出借人
+        if (status == 0) {
+            delete orderBook[borrower][hash];          
+        }
+    }
+
+
+
+    emit Closepstion(borrower, hash, token, address(this), status);
+
+    return status;
   }
 
     // ADDITIONAL HELPERS ADDED FOR TESTING
@@ -350,88 +521,10 @@ contract TheForceLending is SafeMath {
     )
         public
         view
-        returns (bytes32) 
+        returns (bytes32)
     {
-        return sha256(this, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
-    }
-
-    function isValidSignature(
-        bytes32 _hash,
-        uint8 v,
-        bytes32 r,
-        bytes32 s,
-        address signer
-    )
-        public
-        view
-        returns (bool) 
-    {
-        return signer == ecrecover(
-            sha3("\x19Ethereum Signed Message:\n32", _hash),
-            v,
-            r,
-            s
-        );
-    }
-}
-interface tokenRecipient { function receiveApproval(address _from, uint256 _value, address _token, bytes _extraData) public; }
-
-contract TokenERC20 {
-    string public name;
-    string public symbol;
-    uint8 public decimals = 18;
-    uint256 public totalSupply;
-
-    mapping (address => uint256) public balanceOf;  // 
-    mapping (address => mapping (address => uint256)) public allowance;
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    event Burn(address indexed from, uint256 value);
-
-
-    function TokenERC20(uint256 initialSupply, string tokenName, string tokenSymbol) public {
-        totalSupply = initialSupply * 10 ** uint256(decimals);
-        balanceOf[msg.sender] = totalSupply;
-        name = tokenName;
-        symbol = tokenSymbol;
-    }
-
-
-    function _transfer(address _from, address _to, uint _value) internal {
-        require(_to != 0x0);
-        require(balanceOf[_from] >= _value);
-        require(balanceOf[_to] + _value > balanceOf[_to]);
-        uint previousBalances = balanceOf[_from] + balanceOf[_to];
-        balanceOf[_from] -= _value;
-        balanceOf[_to] += _value;
-        Transfer(_from, _to, _value);
-        assert(balanceOf[_from] + balanceOf[_to] == previousBalances);
-    }
-
-    function transfer(address _to, uint256 _value) public {
-        _transfer(msg.sender, _to, _value);
-    }
-
-    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
-        require(_value <= allowance[_from][msg.sender]);     // Check allowance
-        allowance[_from][msg.sender] -= _value;
-        _transfer(_from, _to, _value);
-        return true;
-    }
-
-    function approve(address _spender, uint256 _value) public
-        returns (bool success) {
-        allowance[msg.sender][_spender] = _value;
-        return true;
-    }
-
-    function approveAndCall(address _spender, uint256 _value, bytes _extraData) public returns (bool success) {
-        tokenRecipient spender = tokenRecipient(_spender);
-        if (approve(_spender, _value)) {
-            spender.receiveApproval(msg.sender, _value, this, _extraData);
-            return true;
-        }
+        //return sha256(this, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
+        return sha256(abi.encodePacked(address(this), tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate));
     }
 }
 
@@ -456,7 +549,7 @@ contract WETH {
         emit Deposit(msg.sender, msg.value);
     }
     function withdraw(uint wad) public {
-        require(balanceOf[msg.sender] >= wad);
+        require(balanceOf[msg.sender] >= wad, "invalid amount to withdraw");
         balanceOf[msg.sender] -= wad;
         msg.sender.transfer(wad);
         emit Withdrawal(msg.sender, wad);
@@ -480,10 +573,10 @@ contract WETH {
         public
         returns (bool)
     {
-        require(balanceOf[src] >= wad);
+        require(balanceOf[src] >= wad, "invalid amount to transferFrom");
 
         if (src != msg.sender && allowance[src][msg.sender] != uint(-1)) {
-            require(allowance[src][msg.sender] >= wad);
+            require(allowance[src][msg.sender] >= wad, "invalid allowance to transferFrom");
             allowance[src][msg.sender] -= wad;
         }
 
