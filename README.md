@@ -49,7 +49,9 @@ table contents
 
 借币用户向智能合约质押数字货币，自主设定借款利率和借款期限即可创建借款订单。每笔借款订单将进入币币贷共享订单薄，该共享订单簿向所有币币贷合作伙伴开放，来自任何合作伙伴的出借用户可以选择其中任意一笔借款订单进行出借。
 
-<div align = center>image link
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/SharedOrderBookCN.jpg "Shared Order Book")
 
 图1 共享订单薄</div>
 
@@ -62,7 +64,9 @@ table contents
 - 平台合作节点：数字货币钱包、数字货币交易所及其他流量平台等；
 - 区域合作节点：区域性金融机构和个人（需符合当地法律法规）。
 
-<div align = center>image link
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/GlobalLendingNetworkCN.jpg "Global Lending Network")
 
 图2 全球借贷网络</div>
 
