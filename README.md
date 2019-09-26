@@ -41,7 +41,11 @@
 
 方案完善中，预计于2019年10月12日前面世。
 
+<div align = center>
+
 ![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/interest.rate.equation01.latex.gif "Pool lending interest rate equation")
+
+</div>
 
 <br>
 
