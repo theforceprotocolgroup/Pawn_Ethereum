@@ -43,9 +43,9 @@
 
 $$
 \begin{cases}
-y=x^e+0.015 \ ; \ \ \ \ \ \ \ \ \ &当\ \ \ 0\leq x <\frac{3-\sqrt{5}}{2}\\
-y=(\frac{3-\sqrt{5}}{2})^{e-1}{x}+0.015 \ ; \ \ \ \ \ \ \ \ \ &当\ \ \ \frac{3-\sqrt{5}}{2}\leq x <\frac{\sqrt{5}-1}{2} \\
-y=(\frac{3-\sqrt{5}}{2})^{e-1}-(1-x)^e+0.015；&当\ \ \ \frac{\sqrt{5}-1}{2}\leq x \leq1 \\
+y=x^e+0.015 \ ; \ \ \ \ \ \ \ \ \ &if\ \ \ 0\leq x <\frac{3-\sqrt{5}}{2}\\
+y=(\frac{3-\sqrt{5}}{2})^{e-1}{x}+0.015 \ ; \ \ \ \ \ \ \ \ \ &if\ \ \ \frac{3-\sqrt{5}}{2}\leq x <\frac{\sqrt{5}-1}{2} \\
+y=(\frac{3-\sqrt{5}}{2})^{e-1}-(1-x)^e+0.015；&if\ \ \ \frac{\sqrt{5}-1}{2}\leq x \leq1 \\
 \end{cases}
 $$
 
