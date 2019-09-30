@@ -121,13 +121,21 @@
 
 所以，t时刻的利率：
 
-a稳定币的存款利率 = a稳定币借款利率 × 资金利用率x × 调整比例
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.04.gif "interest rate of t")
+
+</div>
 
 其中，Δt是指t-1时刻到时刻的时间间隔。
 
 因此，假定用户借款金额为BA，借款时刻为t0，还款时刻为t1, 则到期应还本息和为
 
-a稳定币的储备金（ y 和 y' 之间） = y'时的利息额 × ( 1 - 调整比例 )
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.04.gif "interest rate of t")
+
+</div>
 
 存款利率和利息计算公式类似。
 
