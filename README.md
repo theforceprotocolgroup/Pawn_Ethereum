@@ -101,7 +101,11 @@
 
 相对应地，存款利率SIR公式为：
 
-$$SIR_a = a稳定币借款利率y * a稳定币借出比率x*(1-调整比率s)$$
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.02.png "SIR calculation")
+
+</div>
 
 其中，0 ≤ s < 1，一般可取0.1。
 
@@ -109,15 +113,23 @@ $$SIR_a = a稳定币借款利率y * a稳定币借出比率x*(1-调整比率s)$$
 
 存款年化利率和借款年化利率将转换成每秒利率，采用连续复利计算。假定R为借款年化利率，则每秒利率计算公式为：
 
-y'时的利息额 = y时的利息额 + a稳定币的总借出额 × y × （ n个间隔区块 / 年总区块数 ）
+<div align = center>
 
-对于存款利率的计算，采用下列公式：
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.03.gif "per second interest calculation")
+
+</div>
+
+所以，t时刻的利率：
 
 a稳定币的存款利率 = a稳定币借款利率 × 资金利用率x × 调整比例
 
-其中，调整比例由社区治理确定，( 1 - 调整比例 ) 可以视为合约的息差收入，这部分收入将用于维持智能合约正常运转的应急储备金，其计算公式为：
+其中，Δt是指t-1时刻到时刻的时间间隔。
+
+因此，假定用户借款金额为BA，借款时刻为t0，还款时刻为t1, 则到期应还本息和为
 
 a稳定币的储备金（ y 和 y' 之间） = y'时的利息额 × ( 1 - 调整比例 )
+
+存款利率和利息计算公式类似。
 
 **喂价机制**
 
