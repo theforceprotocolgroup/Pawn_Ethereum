@@ -83,7 +83,11 @@
 
 对资金借出量进行量化，我们引入参数x，代表资产a的资金借出比例，其公式为：
 
-$$x = \frac {稳定币的借出总额_a}{( 稳定币剩余可借总额_a + 稳定币的借出总额_a )}$$
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.01.png "x equation")
+
+</div>
 
 设借款利率为y，y 和 x 的关系可以用分段函数表示如下：
 
