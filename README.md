@@ -133,7 +133,7 @@
 
 <div align = center>
 
-![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.04.gif "interest rate of t")
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.05.gif "total refund")
 
 </div>
 
