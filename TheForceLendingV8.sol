@@ -3,3 +3,9 @@
 */
 pragma solidity ^0.4.24;
 
+contract SafeMath {
+  function safeMul(uint a, uint b) pure internal returns (uint) {
+    uint c = a * b;
+    assert(a == 0 || c / a == b);
+    return c;
+  }
