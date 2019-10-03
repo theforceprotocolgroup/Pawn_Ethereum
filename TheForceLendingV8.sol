@@ -9,3 +9,8 @@ contract SafeMath {
     assert(a == 0 || c / a == b);
     return c;
   }
+
+  function safeSub(uint a, uint b) pure internal returns (uint) {
+    assert(b <= a);
+    return a - b;
+  }
