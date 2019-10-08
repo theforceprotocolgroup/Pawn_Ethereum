@@ -35,3 +35,7 @@ contract EIP20Interface {
     */
     /// total amount of tokens
     uint256 public totalSupply;
+
+    /// @param _owner The address from which the balance will be retrieved
+    /// @return The balance
+    function balanceOf(address _owner) public view returns (uint256 balance);
