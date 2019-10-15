@@ -68,3 +68,11 @@ contract EIP20Interface {
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 }
+
+contract ErrorReporter {
+
+    /**
+      * @dev `error` corresponds to enum Error; `info` corresponds to enum FailureInfo, and `detail` is an arbitrary
+      * contract-specific code that enables us to report opaque error codes from upgradeable contracts.
+      **/
+    event Failure(string name, uint error);
