@@ -179,6 +179,102 @@ Figure 1 shared order book</div>
 
 存款利率和利息计算公式类似。
 
+<br>
+
+## 3. Fast lending product
+
+### 3.1 Design ideas
+
+Peer-to-peer lending allows both lenders and borrowers to freely determine the terms of lending, but it also brings a lot of inconvenience: to participate in peer-to-peer lending, users need to publish and manage loan orders independently. In the case of mortgage lending, both borrowers and lenders need to pay attention to the price changes of collateral at any time. At the same time, a point-to-point loan order often takes a long wait from the release to the final transaction. These shortcomings limit the scale and growth rate of the peer-to-peer lending business.
+
+The traditional banking industry has greatly improved the efficiency of loans by pooling funds. Through the banking industry, the lending business can really promote the growth of the real economy. However, the traditional banking industry's lending business application process is complex, the probability of borrowers being refused by banks is high, and the inconvenience of traditional banking industry provides opportunities for new lending instruments.
+
+By pooling funds from different sources of funds that meet the same borrowing conditions, it is possible to create a pool of funds that focus on specific borrowing conditions and provide rapid funding to demanders. With smart contract technology, people can pool funds for the first time without going through traditional banking: through automated programs (smart contracts) deployed on the mainstream public blockchain systems, fund providers can quickly get capital gains without friction, and borrowers can get fast and convenient loans, this business model has been recognized by the market in Ethereum's Compound Lending Application.
+
+BiBi Dai set up a technical framework for both peer-to-peer lending and fast lending business models at the beginning of the project. In the actual development, we first realized and perfected the peer-to-peer lending protocol. In the process of developing the fast lending function, we refer to the concept of Compound lending application, and simplified our original pool of fund model based on different loan cycles. Each specific lending asset uses only one fast lending model.
+
+Different from the concept of interest rate model and cToken design of the Compound application, we proposed the original fast lending product structure of BiBi Dai.
+
+### 3.2 Funds collection
+
+Users of BiBi Dai can transfer the stablecoin assets to smart contracts for custody through dApp's “saving for interest” function to obtain interest income, and BiBi Dai's smart contract summarizes the supply of each user. When the remaining assets in the smart contract are sufficient, the user can transfer their stablecoin assets out of the smart contract at any time without waiting for the loan to expire. At the beginning of the launch, BiBi Dai dApp will provide pools of DAI and USDT stablecoin funds. As the system continues to operate, it will be considered to include more types of stablecoin such as USDC and PAX.
+
+### 3.3 Borrowing assets
+
+BiBi Dai dApp allows users to directly use their ERC-20 assets for loan collateral, quickly and easily obtain stablecoin funds through fast lending function, without paying attention to order’s terms, as the borrowing time is extended, the interest paid is also predictable, all steps are transparent. With the change in the remaining loanable assets in the stablecoin pool, the borrowing rate will be automatically adjusted according to the algorithm.
+
+At the beginning of the BiBi Dai dApp launch, the smart contract accepted ETH, FOR, BNB, HT, MKR, LRC, ZRX, and BAT as collateral. Because different collateral assets differ in terms of liquidity, usage population, etc., the proportion of borrowings that can be obtained for different collaterals will also be different. The specific loan ratio will be adjusted regularly by the community governance with the development of various collaterals.
+
+### 3.4 Risk and liquidation
+
+When the borrower's repayment exceeds the value of its collateral, the system will require the borrower to make up the position in time. If the borrower fails to complete the replenishment within the specified time, the collateral will be seized by the smart contract and the liquidation process will be started. At this point, the arbitrage is allowed to call the clearing contract, and the frozen asset is replaced by stablecoin according to a certain discount ratio. Any Ethereum address holding enough stablecoin assets can call the clearing contract. The clearing process is built into the contract and does not depend on the support of the external system, so the clearing process will remain efficient and fast.
+
+### 3.5 Interest rate model
+
+BiBi Dai dApp adopts an algorithm-controlled interest rate model. Based on the change of supply and demand, the interest rate is automatically adjusted, which effectively affects the total scale of borrowing and the supply of funds.
+
+For the regulation of borrowing funds, BiBi Dai follows the following principle: When the loan amount in the pool of borrowed funds is low, the interest rate of borrowing rises at a low rate to promote the borrower to borrow from the fund pool; when the amount of borrowed funds in the pool are higher, even close to 100%, the loan interest rate rises faster, which drives the interest rate of deposits to increase, so that depositors will deposit more stablecoin into the pool of funds. Through algorithmic adjustment, ensure that the development and growth of the entire pool of loan fund is in a healthy range.
+
+To quantify the amount of funds borrowed, we introduce the parameter x, which represents the proportion of funds borrowed by asset a. The formula is:
+
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.01.EN.png "x equation")
+
+</div>
+
+Let the loan interest rate be y, y and x can be expressed as a piecewise function as follows:
+
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/interest.rate.equation01.latex.gif "Pool lending interest rate equation")
+
+</div>
+
+Unlike the model of Compound's simple interest rate change mechanism, BiBi Dai dApp divides the interest rate change into three stages. In the first stage, in order to stimulate the initial loan increase, the interest rate growth model approximates the exponential curve, which is also in line with natural growth. In the second stage, by accumulating a certain amount of borrowings, the rate of interest rate growth has entered a stable period, and its graph meets a straight line with a certain slope; in the third stage, due to the large amount of funds borrowed, the interest rate change of borrowing will be accelerated, and the rate of lending will be appropriately controlled, also promote the increase in deposits. The rate of interest rate increase will gradually approach an extreme value, its graph at this stage is close to the revised index curve.
+
+Correspondingly, the saving interest rate SIR formula is:
+
+<div align = center>
+
+<b>'SIRa = borrowing interest rate y of stablecoin a * borrowed portion x of stablecoin a * (1 - adjust factor s)'</b>
+
+</div>
+
+Where 0 ≤ s < 1, generally 0.1.
+
+### 3.6 Interest rate calculation
+
+The annualized interest rate of deposits and the annualized interest rate of borrowings will be converted into interest rates per second, using continuous compound interest calculations. Assuming R is the annualized interest rate of the loan, the formula for calculating the interest rate per second is:
+
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.03.gif "per second interest calculation")
+
+</div>
+
+Therefore, the interest rate at time t:
+
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.04.gif "interest rate of t")
+
+</div>
+
+Where Δt is the time interval from the time t-1 to the time t.
+
+Therefore, assuming that the user borrowing amount is BA, the borrowing time is t0, and the repayment time is t1, the principal and interest for repayment will be
+
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/bibidai.equation.05.gif "total refund")
+
+</div>
+
+The deposit interest rate and interest calculation formula are similar.
+
+<br>
+
 ## 4. 通用模块
 
 币币贷依托原力协议开源框架开发，是原力协议支持的首个落地DeFi项目。由原力协议提供的通用技术解决方案包括：
