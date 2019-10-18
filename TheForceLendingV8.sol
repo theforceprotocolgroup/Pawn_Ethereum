@@ -118,3 +118,14 @@ contract ErrorReporter {
         REPAY_SEND_ETH_ERROR,
         FORCE_REPAY_SEND_ETH_ERROR
     }
+
+    /**
+      * @dev use this when reporting a known error from the money market or a non-upgradeable collaborator
+      */
+    function fail(string name, Error err) internal returns (uint) {
+        emit Failure(name, uint(err));
+
+        return uint(err);
+    }
+}
+
