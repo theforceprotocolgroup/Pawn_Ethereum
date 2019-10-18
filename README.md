@@ -423,3 +423,20 @@ In order to practice the human inclusive finance enterprise, BiBi Dai will estab
 | 2019年11月 | 基于ETH的去中心化借贷产品 | 完成集中借贷开发 |
 | 2019年12月 | 基于ETH的去中心化借贷产品 | 用户体验优化、支持API模式、完善去中心治理架构 |
 | 预计2020年底 | 基于原力协议金融公链的去中心化借贷产品 | 支持所有主流加密资产 |
+
+<br>
+
+## 6. BiBi Dai R&D Plan
+
+Developed with principals of practicality and usability, BiBi Dai is committed to building a fully decentralized global lending network. The progress of the development is expected to be as follows:
+
+<b> Table 3 Decentralized lending product development plan </b>
+
+| Time schedule | Content | Details |
+| ------------- | ------------- | ------------- |
+| Online already | iOS-based centralized lending products | MVP products |
+| Online already | EOS-based decentralized lending products | MVP Products |
+| October 2019 | Decentralized lending products based on ETH | Forming a lending network which support dApp and H5 models |
+| November 2019 | Decentralized lending product based on ETH | Complete fast lending development |
+| December 2019 | ETH-based decentralized lending product | User experience optimization, support for API models, and improved decentralized governance architecture |
+| End of 2020 | Decentralized lending products based on The Force Protocol public financial blockchain | Support for all major cryptoassets |
