@@ -137,3 +137,19 @@ library ERC20AsmFn {
         }
     }
 
+    function handleReturnData() internal returns (bool result) {
+        assembly {
+            switch returndatasize()
+            case 0 { // not a std erc20
+                result := 1
+            }
+            case 32 { // std erc20
+                returndatacopy(0, 0, 32)
+                result := mload(0)
+            }
+            default { // anything else, should revert for safety
+                revert(0, 0)
+            }
+        }
+    }
+
