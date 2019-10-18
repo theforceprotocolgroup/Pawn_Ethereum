@@ -295,6 +295,30 @@ The deposit interest rate and interest calculation formula are similar.
 
 币币贷将尝试把信用评分模型引入数字货币借贷领域，以提升借贷体验。具体而言，币币贷将综合链上转账、交易信息、历史借贷信息和链下信息等进行数据分析，建立借贷信用评分机器学习模型，评估借款人的资信情况和预测违约概率。
 
+<br>
+
+## 4. General module
+
+Based on The Force Protocol open source framework, BiBi Dai is the first available DeFi project supported by The Force Protocol. Technical solutions provided by The Force Protocol include:
+
++ Oracle
++ Governance mechanism
++ Big data and artificial intelligence
+
+### 4.1 Oracle
+
+The system needs to obtain external prices in real time and monitor changes in the pledge rate for timely liquidation and risk control. In the absence of a mature decentralized oracle solution, the system maintains a whitelist of price feeding addresses instead, which are added or removed by community governance voting. Each feeding price includes price information and price validity period, and the system calculates the median value from all valid feed prices as the final price. After having a oracle solution generally recognized by the industry, the system will switch to the corresponding decentralized oracle to ensure that the feed rate mechanism is fair, just, open and transparent.
+
+### 4.2 Governance Mechanism
+
+The governance of BiBi Dai dApp takes the form of a combination of community governance and management team. For the addition of new stablecoin funds pool, update the global interest rate model, update the oracle address, modify the interest adjustment ratio, management team re-election and other major issues, will be fully discussed and voted by the community; the management team composed of BiBi Dai team members is responsible for daily dApp development operation and maintenance work.
+
+### 4.3 Big Data and Artificial Intelligence
+
+BiBi Dai will try to introduce the credit scoring model into the field of cryptocurrency lending to enhance the lending experience. Specifically, BiBi Dai conducts data analysis on integrated on-chain transaction, transaction information, historical lending information and off-chain information, establishes a loan credit scoring machine learning model, evaluates the borrower's credit status and predicts default probability.
+
+<br>
+
 ## 5. 币币贷全球借贷网络
 
 ### 5.1 我们的优势
@@ -337,6 +361,51 @@ The deposit interest rate and interest calculation formula are similar.
 ### 5.4 币币贷借贷公益基金
 
 为践行人类普惠金融事业，币币贷成立借贷公益基金，向全球欠发达国家和地区用户提供低息借款服务。对欠发达国家和地区的区域性合作节点，币币贷将分配更多服务费，并提供全方位的技术和资金支持。
+
+<br>
+
+## 5. BiBi Dai Global Lending Network
+
+### 5.1 Our strengths
+
++ Really available DeFi products
++ Committed to complete decentralization
++ Smart contract custody assets, contract code open source
++ Automatic settlement of interest rates
++ Sharing a global lending network
+
+### 5.2 Cooperation nodes
+
+BiBi Dai builds a global lending network through cooperative nodes to realize global lending and resource sharing. All partner nodes can enjoy the fee sharing.
+
+- **Platform cooperation nodes**: cryptocurrency wallet, cryptocurrency exchange and other traffic platforms
+- **Regional cooperation nodes**: regional financial institutions and individuals (subject to local laws and regulations).
+
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/GlobalLendingNetworkEN.jpg "Global Lending Network")
+
+Figure 2 Global Lending Network</div>
+
+<br>
+
+### 5.3 Cooperation mode
+
+BiBi Dai offers a variety of access methods for different partners.
+
+<b> Table 2 BiBi Dai cooperation mode </b>
+
+| Access method | Account mode | Development needs | Target partners |
+| ------------- | ------------- | ------------- | ------------- |
+| H5 | custody account | no development required | traffic platform |
+| dApp | wallet | a small amount of development | wallet platform |
+| API | customization | self-driven development | professional loan platform |
+
+<br>
+
+### 5.4 BiBi Dai Lending Public Welfare Fund
+
+In order to practice the human inclusive finance enterprise, BiBi Dai will establish a public welfare loan fund to provide low-interest loan services to users in less developed countries and regions around the world. For regional cooperation nodes in less developed countries and regions, BiBi Dai will allocate more service fees and provide comprehensive technical and financial support.
 
 <br>
 
