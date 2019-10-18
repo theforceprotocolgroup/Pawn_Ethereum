@@ -1,10 +1,17 @@
 # 币币贷去中心化借贷产品说明
+# BiBi Dai Decentralized Loan Product Description
 
 ## 1. 币币贷简介
 
 币币贷由注册在塞舌尔的 *Bibidai Distributed Network Technology Service Group Ltd.* 运营管理。币币贷依托原力协议开源框架，搭建全球借贷网络，根据社会各阶层和群体的不同借贷需求制定专属方案，提供适当、有效的金融服务，关注欠发达国家或地区的弱势群体，践行人类普惠金融事业。
 
 币币贷的去中心化借贷服务，是基于以太坊、EOS等主流公链开发的借贷dApp，支持点对点质押借贷和汇集流动性借贷，质押资产由智能合约保管。币币贷业务旨在改善全球各区域金融服务的不平衡，实现全球借贷资源共享。
+
+## 1. Brief introduction of BiBi Dai
+
+BiBi Dai is operated and managed by Bibidai Distributed Network Technology Service Group Ltd., registered in the Seychelles. Based on The Force Protocol open source framework, BiBi Dai builds a global lending network, formulates exclusive programs based on different borrowing needs of all sectors and groups of society, provides appropriate and effective financial services, pays attention to vulnerable groups in less developed countries or regions, and practices human inclusive finance career.
+
+BiBi Dai's decentralized lending service is a lending dApp based on the mainstream public blockchain such as Ethereum and EOS. It supports peer-to-peer pledge lending and fast lending (fund pool mode), and pledge assets are kept by smart contracts. The BiBi Dai business aims to improve the imbalance of financial services across the globe and to achieve global lending and resource sharing.
 
 ## 2. 点对点借贷产品
 
@@ -40,6 +47,43 @@
 ![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/Dev/Images/SharedOrderBookCN.jpg "Shared Order Book")
 
 图1 共享订单薄</div>
+
+<br>
+
+## 2. Peer-to-peer loan product
+
+### 2.1 Product elements and rules
+
+Table 1 Decentralized peer-to-peer pledge loan product on Ethereum
+
+| <b>Elements</b> | <b>Rules</b> |
+| ------ | ------ |
+| <b>Lending coins</b> | USDT(ERC-20), DAI, QIAN, etc.
+| <b>Pledge coins</b> | ETH, BNB, FOR, BAT, HT, MKR, LRC, etc.
+| <b>Pledge rate</b> | 180% (= pledged coins market value / market value of lending coins)
+| <b>Make up line</b> | 150% |
+| <b>Closed line</b> | 120% |
+| <b>Daily interest rate</b> | 0.1‰ to 0.8‰, set by the participants
+| <b>Loan period</b> | 7, 14, 30, 60, 90 days, choose by the participants
+| <b>Minimum borrowing amount</b> | From 10 USD
+| <b>Handling fee</b> | see notes
+| <b>Order limited period</b> | If the order is not filled within 5 natural days, the order will be cancelled by the system.
+
+<b>Notes:</b>
+
+The daily handling rate is 0.5‰ (subject to the page prompt), and the two-way fee is charged to the borrowing user and the lending user. The borrower pays the handling fee when repaying the loan, and the lender pays the handling fee when lending. When the pledge rate is down to 120%, the loan contract will be closed, in which 5% of the pledged token will be transferred to the source channel of the borrowing order, 5% will be used as the closing fee, and 110% will be transferred to the lender.
+
+<br>
+
+### 2.2 Shared order book
+
+The borrowing user pledges cryptocurrency to the smart contract, sets the borrowing rate and the borrowing period independently, and creates a borrowing order. Each loan order will enter the BiBi Dai Global Shared Order Book, which is open to all BiBi Dai partners, and any lender from any partner can choose any of the loan orders to lend.
+
+<div align = center>
+
+![GitHub](https://raw.githubusercontent.com/theforceprotocolgroup/TheForceProtocolLending/master/Images/SharedOrderBookEN.jpg "Shared Order Book")
+
+Figure 1 shared order book</div>
 
 <br>
 
