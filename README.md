@@ -237,7 +237,7 @@ Correspondingly, the saving interest rate SIR formula is:
 
 <div align = center>
 
-'SIRa = borrowing interest rate y of stablecoin a * borrowed portion x of stablecoin a * (1 - adjust factor s)'
+'''SIRa = borrowing interest rate y of stablecoin a * borrowed portion x of stablecoin a * (1 - adjust factor s)'''
 
 </div>
 
