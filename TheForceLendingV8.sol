@@ -129,3 +129,11 @@ contract ErrorReporter {
     }
 }
 
+library ERC20AsmFn {
+
+    function isContract(address addr) internal {
+        assembly {
+            if iszero(extcodesize(addr)) { revert(0, 0) }
+        }
+    }
+
