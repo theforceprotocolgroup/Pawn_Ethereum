@@ -7,7 +7,7 @@
 
 币币贷的去中心化借贷服务，是基于以太坊、EOS等主流公链开发的借贷dApp，支持点对点质押借贷和汇集流动性借贷，质押资产由智能合约保管。币币贷业务旨在改善全球各区域金融服务的不平衡，实现全球借贷资源共享。
 
-## 1. Brief introduction of BiBi Dai
+## 1. Brief Introduction of BiBi Dai
 
 BiBi Dai is operated and managed by Bibidai Distributed Network Technology Service Group Ltd., registered in the Seychelles. Based on The Force Protocol open source framework, BiBi Dai builds a global lending network, formulates exclusive programs based on different borrowing needs of all sectors and groups of society, provides appropriate and effective financial services, pays attention to vulnerable groups in less developed countries or regions, and practices human inclusive finance career.
 
@@ -50,9 +50,9 @@ BiBi Dai's decentralized lending service is a lending dApp based on the mainstre
 
 <br>
 
-## 2. Peer-to-peer loan product
+## 2. Peer-to-Peer Loan Product
 
-### 2.1 Product elements and rules
+### 2.1 Product Elements and Rules
 
 Table 1 Decentralized peer-to-peer pledge loan product on Ethereum
 
@@ -75,7 +75,7 @@ The daily handling rate is 0.5‰ (subject to the page prompt), and the two-way 
 
 <br>
 
-### 2.2 Shared order book
+### 2.2 Shared Order Book
 
 The borrowing user pledges cryptocurrency to the smart contract, sets the borrowing rate and the borrowing period independently, and creates a borrowing order. Each loan order will enter the BiBi Dai Global Shared Order Book, which is open to all BiBi Dai partners, and any lender from any partner can choose any of the loan orders to lend.
 
@@ -181,9 +181,9 @@ Figure 1 shared order book</div>
 
 <br>
 
-## 3. Fast lending product
+## 3. Fast Lending Product
 
-### 3.1 Design ideas
+### 3.1 Design Ideas
 
 Peer-to-peer lending allows both lenders and borrowers to freely determine the terms of lending, but it also brings a lot of inconvenience: to participate in peer-to-peer lending, users need to publish and manage loan orders independently. In the case of mortgage lending, both borrowers and lenders need to pay attention to the price changes of collateral at any time. At the same time, a point-to-point loan order often takes a long wait from the release to the final transaction. These shortcomings limit the scale and growth rate of the peer-to-peer lending business.
 
@@ -195,21 +195,21 @@ BiBi Dai set up a technical framework for both peer-to-peer lending and fast len
 
 Different from the concept of interest rate model and cToken design of the Compound application, we proposed the original fast lending product structure of BiBi Dai.
 
-### 3.2 Funds collection
+### 3.2 Funds Collection
 
 Users of BiBi Dai can transfer the stablecoin assets to smart contracts for custody through dApp's “saving for interest” function to obtain interest income, and BiBi Dai's smart contract summarizes the supply of each user. When the remaining assets in the smart contract are sufficient, the user can transfer their stablecoin assets out of the smart contract at any time without waiting for the loan to expire. At the beginning of the launch, BiBi Dai dApp will provide pools of DAI and USDT stablecoin funds. As the system continues to operate, it will be considered to include more types of stablecoin such as USDC and PAX.
 
-### 3.3 Borrowing assets
+### 3.3 Borrowing Assets
 
 BiBi Dai dApp allows users to directly use their ERC-20 assets for loan collateral, quickly and easily obtain stablecoin funds through fast lending function, without paying attention to order’s terms, as the borrowing time is extended, the interest paid is also predictable, all steps are transparent. With the change in the remaining loanable assets in the stablecoin pool, the borrowing rate will be automatically adjusted according to the algorithm.
 
 At the beginning of the BiBi Dai dApp launch, the smart contract accepted ETH, FOR, BNB, HT, MKR, LRC, ZRX, and BAT as collateral. Because different collateral assets differ in terms of liquidity, usage population, etc., the proportion of borrowings that can be obtained for different collaterals will also be different. The specific loan ratio will be adjusted regularly by the community governance with the development of various collaterals.
 
-### 3.4 Risk and liquidation
+### 3.4 Risk and Liquidation
 
 When the borrower's repayment exceeds the value of its collateral, the system will require the borrower to make up the position in time. If the borrower fails to complete the replenishment within the specified time, the collateral will be seized by the smart contract and the liquidation process will be started. At this point, the arbitrage is allowed to call the clearing contract, and the frozen asset is replaced by stablecoin according to a certain discount ratio. Any Ethereum address holding enough stablecoin assets can call the clearing contract. The clearing process is built into the contract and does not depend on the support of the external system, so the clearing process will remain efficient and fast.
 
-### 3.5 Interest rate model
+### 3.5 Interest Rate Model
 
 BiBi Dai dApp adopts an algorithm-controlled interest rate model. Based on the change of supply and demand, the interest rate is automatically adjusted, which effectively affects the total scale of borrowing and the supply of funds.
 
@@ -243,7 +243,7 @@ Correspondingly, the saving interest rate SIR formula is:
 
 Where 0 ≤ s < 1, generally 0.1.
 
-### 3.6 Interest rate calculation
+### 3.6 Interest Rate Calculation
 
 The annualized interest rate of deposits and the annualized interest rate of borrowings will be converted into interest rates per second, using continuous compound interest calculations. Assuming R is the annualized interest rate of the loan, the formula for calculating the interest rate per second is:
 
@@ -297,7 +297,7 @@ The deposit interest rate and interest calculation formula are similar.
 
 <br>
 
-## 4. General module
+## 4. General Module
 
 Based on The Force Protocol open source framework, BiBi Dai is the first available DeFi project supported by The Force Protocol. Technical solutions provided by The Force Protocol include:
 
@@ -366,7 +366,7 @@ BiBi Dai will try to introduce the credit scoring model into the field of crypto
 
 ## 5. BiBi Dai Global Lending Network
 
-### 5.1 Our strengths
+### 5.1 Our Strengths
 
 + Really available DeFi products
 + Committed to complete decentralization
@@ -374,7 +374,7 @@ BiBi Dai will try to introduce the credit scoring model into the field of crypto
 + Automatic settlement of interest rates
 + Sharing a global lending network
 
-### 5.2 Cooperation nodes
+### 5.2 Cooperation Nodes
 
 BiBi Dai builds a global lending network through cooperative nodes to realize global lending and resource sharing. All partner nodes can enjoy the fee sharing.
 
@@ -389,7 +389,7 @@ Figure 2 Global Lending Network</div>
 
 <br>
 
-### 5.3 Cooperation mode
+### 5.3 Cooperation Mode
 
 BiBi Dai offers a variety of access methods for different partners.
 
