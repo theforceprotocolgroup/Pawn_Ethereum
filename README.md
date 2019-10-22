@@ -5,13 +5,13 @@
 
 BiBi Dai is operated and managed by Bibidai Distributed Network Technology Service Group Ltd., registered in the Seychelles. Based on The Force Protocol open source framework, BiBi Dai builds a global lending network, formulates exclusive programs based on different borrowing needs of all sectors and groups of society, provides appropriate and effective financial services, pays attention to vulnerable groups in less developed countries or regions, and practices human inclusive finance career.
 
-BiBi Dai's decentralized lending service is a lending dApp based on the mainstream public blockchain such as Ethereum and EOS. It supports peer-to-peer pledge lending and fast lending (fund pool mode), and pledge assets are kept by smart contracts. The BiBi Dai business aims to improve the imbalance of financial services across the globe and to achieve global lending and resource sharing.
+BiBi Dai's decentralized lending service is a lending dApp based on the mainstream public blockchain such as Ethereum, EOS and RSK. It supports peer-to-peer pledge lending and fast lending (fund pool mode), and pledge assets are kept by smart contracts. The BiBi Dai business aims to improve the imbalance of financial services across the globe and to achieve global lending and resource sharing.
 
 ## 1. 币币贷简介
 
 币币贷由注册在塞舌尔的 *Bibidai Distributed Network Technology Service Group Ltd.* 运营管理。币币贷依托原力协议开源框架，搭建全球借贷网络，根据社会各阶层和群体的不同借贷需求制定专属方案，提供适当、有效的金融服务，关注欠发达国家或地区的弱势群体，践行人类普惠金融事业。
 
-币币贷的去中心化借贷服务，是基于以太坊、EOS等主流公链开发的借贷dApp，支持点对点质押借贷和汇集流动性借贷，质押资产由智能合约保管。币币贷业务旨在改善全球各区域金融服务的不平衡，实现全球借贷资源共享。
+币币贷的去中心化借贷服务，是基于以太坊、EOS、RSK等主流公链开发的借贷dApp，支持点对点质押借贷和汇集流动性借贷，质押资产由智能合约保管。币币贷业务旨在改善全球各区域金融服务的不平衡，实现全球借贷资源共享。
 
 ## 2. Peer-to-Peer Loan Product
 
