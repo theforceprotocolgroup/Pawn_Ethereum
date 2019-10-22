@@ -164,3 +164,18 @@ library ERC20AsmFn {
         // handle returndata
         return handleReturnData();
     }
+
+    function asmTransferFrom(address _erc20Addr, address _from, address _to, uint256 _value) internal returns (bool result) {
+
+        // Must be a contract addr first!
+        isContract(_erc20Addr);
+
+        // call return false when something wrong
+        require(_erc20Addr.call(bytes4(keccak256("transferFrom(address,address,uint256)")), _from, _to, _value), "asmTransferFrom error");
+
+        // handle returndata
+        return handleReturnData();
+    }
+
+}
+
