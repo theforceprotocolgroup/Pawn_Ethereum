@@ -222,3 +222,16 @@ contract TheForceLending is SafeMath, ErrorReporter {
    mapping (address => uint) public creditScore;//信用分，信用分高享受手续费优惠
    mapping (bytes32 => mapping (address => bytes32[])) partnerOrderHash;
 
+  function numHash(bytes32 partnerId, address usr) public view returns (uint) {
+      return partnerOrderHash[partnerId][usr].length;
+  }
+
+  function listHash(bytes32 partnerId, address usr) public view returns (bytes32[]) {
+      return partnerOrderHash[partnerId][usr];
+  }
+
+  function deleteHashByIndex(bytes32 partnerId, address usr, uint index) internal {
+     require(index < partnerOrderHash[partnerId][usr].length, "out of index");
+     delete partnerOrderHash[partnerId][usr][index];
+  }
+  
