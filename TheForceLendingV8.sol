@@ -420,4 +420,21 @@ contract TheForceLending is SafeMath, ErrorReporter {
   
     return 0;
   }
- 
+
+  function withdrawToken(bytes32 partnerId, address token, uint amount) internal returns (uint) {
+    return sendToken(partnerId, token, msg.sender, amount);
+  }
+  
+  function sendToken(bytes32 partnerId, address token, address to, uint amount) internal returns (uint) {
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+
+    if (token==0 || to == 0 || amount == 0) revert("invalid token address or amount");
+    if (partnerTokens[partnerId][token][to] < amount) {
+        return uint(Error.SEND_TOKEN_AMOUNT_ERROR);
+    }
+    partnerTokens[partnerId][token][to] = safeSub(partnerTokens[partnerId][token][to], amount);
+    if (!EIP20Interface(token).asmTransfer(to, amount)) {
+        return uint(Error.SEND_TOKEN_TRANSER_ERROR);
+    }
+    return 0;
+  }
