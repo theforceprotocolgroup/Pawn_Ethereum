@@ -411,4 +411,13 @@ contract TheForceLending is SafeMath, ErrorReporter {
     return 0;
   }
 
+  function depositToken(bytes32 partnerId, address token, uint amount) public returns (uint){
+    //remember to call Token(address).approve(this, amount) or this contract will not be able to do the transfer on your behalf.
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+
+    safeTransferFrom(token, msg.sender, this, this, amount);
+    partnerTokens[partnerId][token][msg.sender] = safeAdd(partnerTokens[partnerId][token][msg.sender], amount);
+  
+    return 0;
+  }
  
