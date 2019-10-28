@@ -393,3 +393,22 @@ contract TheForceLending is SafeMath, ErrorReporter {
         return uint(Error.TOKEN_INSUFFICIENT_ALLOWANCE);
       }
     }
+    
+    if (EIP20Interface(token).balanceOf(owner) < amount) {
+      return uint(Error.TOKEN_INSUFFICIENT_ALLOWANCE);
+    }
+
+    if (owner != spender) {
+      if (!EIP20Interface(token).asmTransferFrom(owner, to, amount)) {
+        return uint(Error.TRANSFER_FROM_ERROR);
+      }
+    } else {
+      if (!EIP20Interface(token).asmTransfer(to, amount)) {
+        return uint(Error.TRANSFER_FROM_ERROR);
+      }
+    }
+
+    return 0;
+  }
+
+ 
