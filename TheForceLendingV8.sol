@@ -210,3 +210,15 @@ contract TheForceLending is SafeMath, ErrorReporter {
     uint fee_rate;
   }
 
+  address public admin; //the admin address
+  address public offcialFeeAccount; //the account that will receive fees
+  bytes32 public offcialPartnerId; //the offical partnerId for fastborrow and fastlender
+  uint public saveRate; // 1+interest rate per block for savings in fixed-point
+
+   mapping (bytes32 => address) public partnerAccounts;// bytes32-> address, eg: platformA->0xa{40}, platfromB->0xb{40}
+   mapping (bytes32 => mapping (address => mapping (address => uint))) public partnerTokens;// platform->tokenContract->address->balance
+   mapping (bytes32 => mapping (address => mapping (bytes32 => Order_t))) public partnerOrderBook;// platform->address->hash->order_t
+   mapping (bytes32 => mapping (address => mapping (address => uint))) prevUpdateBlock; // platform->tokenContract->address->Block number of last update block
+   mapping (address => uint) public creditScore;//信用分，信用分高享受手续费优惠
+   mapping (bytes32 => mapping (address => bytes32[])) partnerOrderHash;
+
