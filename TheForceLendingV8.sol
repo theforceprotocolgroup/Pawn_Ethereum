@@ -342,3 +342,20 @@ contract TheForceLending is SafeMath, ErrorReporter {
     emit SendEth(partnerId, token, dst, amount, partnerTokens[partnerId][token][msg.sender]);
     return true;
   }
+
+  //计算单利, interestPerBlock, 5%->5e16
+  function calcSimpleInterest(uint interestPerBlock, uint numBlocks) public view returns (uint interest) {
+    return interestPerBlock * numBlocks;
+  }
+
+  //充值token，项目方首先调用，填充资金池，充入USDT和DAI,按块计算利息
+  function depositSavings(bytes32 partnerId, address token, uint amount) public returns (uint) {
+    //remember to call Token(address).approve(this, amount) or this contract will not be able to do the transfer on your behalf.
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+
+    require(safeTransferFrom(token, msg.sender, this, this, amount) == 0, "safeTransferFrom error");
+    partnerTokens[partnerId][token][msg.sender] = safeAdd(partnerTokens[partnerId][token][msg.sender], amount);
+
+    prevUpdateBlock[partnerId][token][msg.sender] = block.number;
+    return 0;
+  }
