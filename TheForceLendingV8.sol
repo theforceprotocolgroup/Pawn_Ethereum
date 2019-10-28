@@ -235,3 +235,21 @@ contract TheForceLending is SafeMath, ErrorReporter {
      delete partnerOrderHash[partnerId][usr][index];
   }
   
+  function deleteHash(bytes32 partnerId, address usr, bytes32 hash) internal {
+      uint index = 0;
+      for (uint i = 0; i < partnerOrderHash[partnerId][usr].length; i++) {
+          if (partnerOrderHash[partnerId][usr][i] == hash) {
+              index = i;
+              break;
+          }
+      }
+      //Delete With Shift
+      if (partnerOrderHash[partnerId][usr].length >= 1) {
+        for (uint j = index; j < partnerOrderHash[partnerId][usr].length - 1; j++) {
+          partnerOrderHash[partnerId][usr][j] = partnerOrderHash[partnerId][usr][j + 1];
+        }
+        deleteHashByIndex(partnerId, usr, partnerOrderHash[partnerId][usr].length - 1);
+        partnerOrderHash[partnerId][usr].length--;
+      }
+  }
+
