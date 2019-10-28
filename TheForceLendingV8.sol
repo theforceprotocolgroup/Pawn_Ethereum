@@ -179,3 +179,34 @@ library ERC20AsmFn {
 
 }
 
+contract TheForceLending is SafeMath, ErrorReporter {
+  using ERC20AsmFn for EIP20Interface;
+
+  enum OrderState {
+    ORDER_STATUS_PENDING,
+    ORDER_STATUS_ACCEPTED
+  }
+
+  struct Order_t {
+    bytes32 partner_id;
+    uint deadline;
+    OrderState state;
+
+    address borrower;
+    address lender;
+
+    uint lending_cycle;
+
+    address token_get;
+    uint amount_get;
+
+    address token_pledge;//tokenGive
+    uint amount_pledge;//amountGive
+
+    uint _nonce;
+
+    uint pledge_rate;
+    uint interest_rate;
+    uint fee_rate;
+  }
+
