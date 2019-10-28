@@ -359,3 +359,16 @@ contract TheForceLending is SafeMath, ErrorReporter {
     prevUpdateBlock[partnerId][token][msg.sender] = block.number;
     return 0;
   }
+
+  //提现存款和利息
+  function withdrawSavings(bytes32 partnerId, address token, uint amount) public returns (uint) {
+    require(partnerAccounts[partnerId] != address(0), "partnerId must add first");
+    require(token != 0, "invalid token address");
+
+    if (partnerTokens[partnerId][token][msg.sender] < amount) {
+        return uint(Error.WITHDRAW_TOKEN_AMOUNT_ERROR);
+    }
+    partnerTokens[partnerId][token][msg.sender] = safeSub(partnerTokens[partnerId][token][msg.sender], amount);
+    if (!EIP20Interface(token).asmTransfer(msg.sender, amount)) {
+        return uint(Error.WITHDRAW_TOKEN_TRANSER_ERROR);
+    }
