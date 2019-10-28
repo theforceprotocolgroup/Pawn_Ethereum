@@ -304,3 +304,26 @@ contract TheForceLending is SafeMath, ErrorReporter {
   function setOffcialPartnerId(bytes32 id) public onlyAdmin {
     offcialPartnerId = id;
   }
+
+  //增
+  function addPartner(bytes32 partnerId, address partner) public onlyAdmin {
+    require(partnerAccounts[partnerId] == address(0), "already exists!");
+    partnerAccounts[partnerId] = partner;
+  }
+
+  //删
+  function delPartner(bytes32 partnerId) public onlyAdmin {
+    delete partnerAccounts[partnerId];
+  }
+
+  //改
+  function modPartner(bytes32 partnerId, address partner) public onlyAdmin {
+    require(partnerAccounts[partnerId] != address(0), "not exists!");
+    partnerAccounts[partnerId] = partner;
+  }
+
+  //查
+  function getPartner(bytes32 partnerId) public view returns (address) {
+    return partnerAccounts[partnerId];
+  }
+  
