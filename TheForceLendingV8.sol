@@ -289,3 +289,18 @@ contract TheForceLending is SafeMath, ErrorReporter {
     _;
   }
 
+  function changeAdmin(address admin_) public onlyAdmin {
+    admin = admin_;
+  }
+
+  function changeFeeAccount(address offcialFeeAccount_) public onlyAdmin {
+    offcialFeeAccount = offcialFeeAccount_;
+  }
+
+  function setSaveRate(uint rate) public onlyAdmin {
+		saveRate = rate;
+  }
+
+  function setOffcialPartnerId(bytes32 id) public onlyAdmin {
+    offcialPartnerId = id;
+  }
