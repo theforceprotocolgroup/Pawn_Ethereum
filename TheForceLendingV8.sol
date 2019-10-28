@@ -327,3 +327,18 @@ contract TheForceLending is SafeMath, ErrorReporter {
     return partnerAccounts[partnerId];
   }
   
+  //充值ETH
+  function deposit(bytes32 partnerId) public payable  {
+    partnerTokens[partnerId][address(0)][msg.sender] = safeAdd(partnerTokens[partnerId][address(0)][msg.sender], msg.value);
+    emit Deposit(partnerId, address(0), msg.sender, msg.value, partnerTokens[partnerId][address(0)][msg.sender]);
+  }
+
+  function sendEth(bytes32 partnerId, address dst, address token, uint256 amount) internal returns (bool success) {
+    if (token != 0) revert("invalid token address!");
+    if (partnerTokens[partnerId][token][msg.sender] < amount) revert("invalid amount");//lend时，dst没有eth，所以取消判断
+    partnerTokens[partnerId][token][msg.sender] = safeSub(partnerTokens[partnerId][token][msg.sender], amount);
+    dst.transfer(amount);
+
+    emit SendEth(partnerId, token, dst, amount, partnerTokens[partnerId][token][msg.sender]);
+    return true;
+  }
