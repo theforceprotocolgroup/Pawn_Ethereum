@@ -253,3 +253,25 @@ contract TheForceLending is SafeMath, ErrorReporter {
       }
   }
 
+  event Borrow(bytes32 partnerId,
+                address tokenGet,
+                  uint amountGet,
+                  address tokenGive,
+                  uint amountGive,
+                  uint nonce,
+                  uint lendingCycle,
+                  uint pledgeRate,
+                  uint interestRate,
+                  uint feeRate,
+                  address user,
+                  bytes32 hash,
+                  uint status);
+  event Lend(bytes32 partnerId, bytes32 lenderPartnerId, address borrower, bytes32 txId, address token, uint amount, address give);//txId为借款单txId
+  event CancelOrder(bytes32 partnerId, address borrower, bytes32 txId, address by);//取消借款单，只能被borrower或者合约取消
+  event Callmargin(bytes32 partnerId, address borrower, bytes32 txId, address token, uint amount, address by);
+  event Repay(bytes32 partnerId, address borrower, bytes32 txId, address token, uint amount, address by);
+  event Closepstion(bytes32 partnerId, address borrower, bytes32 txId, address token, address by);
+  event Forcerepay(bytes32 partnerId, address borrower, bytes32 txId, address token, address by);
+  event Deposit(bytes32 partnerId, address token, address user, uint256 amount, uint256 balance);
+  event SendEth(bytes32 partnerId, address token, address user, uint256 amount, uint256 balance);
+
