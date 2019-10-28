@@ -275,3 +275,17 @@ contract TheForceLending is SafeMath, ErrorReporter {
   event Deposit(bytes32 partnerId, address token, address user, uint256 amount, uint256 balance);
   event SendEth(bytes32 partnerId, address token, address user, uint256 amount, uint256 balance);
 
+  constructor(address admin_, address offcialFeeAccount_) public {
+    admin = admin_;
+    offcialFeeAccount = offcialFeeAccount_;
+  }
+
+  function() public payable {
+    revert("fallback can't be payable");
+ }
+
+  modifier onlyAdmin() {
+    require(msg.sender == admin, "only admin can do this!");
+    _;
+  }
+
