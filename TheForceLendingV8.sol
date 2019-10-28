@@ -372,3 +372,24 @@ contract TheForceLending is SafeMath, ErrorReporter {
     if (!EIP20Interface(token).asmTransfer(msg.sender, amount)) {
         return uint(Error.WITHDRAW_TOKEN_TRANSER_ERROR);
     }
+
+    //FIXME: 添加利息检查，防止用户提取多余利息
+    if (block.number >= prevUpdateBlock[partnerId][token][msg.sender]) {
+      uint interestAmount = amount*calcSimpleInterest(saveRate, block.number - prevUpdateBlock[partnerId][token][msg.sender])/1e18;
+      //发送利息给用户
+      if (!EIP20Interface(token).asmTransfer(msg.sender, interestAmount)) {
+          return uint(Error.WITHDRAW_TOKEN_TRANSER_ERROR);
+      }
+    }
+    return 0;
+  }
+
+  function safeTransferFrom(address token, address owner, address spender, address to, uint amount) internal returns (uint) {
+    require(amount > 0, "invalid safeTransferFrom amount");
+    require(token != 0, "invalid token address!");
+
+    if (owner != spender) {
+      if (EIP20Interface(token).allowance(owner, spender) < amount) {
+        return uint(Error.TOKEN_INSUFFICIENT_ALLOWANCE);
+      }
+    }
