@@ -456,3 +456,42 @@ contract TheForceLending is SafeMath, ErrorReporter {
     require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
     bytes32 txid = hash(partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
     require(partnerOrderBook[partnerId][msg.sender][txid].borrower == address(0), "order already exists");
+
+    uint status = 0;
+
+    partnerOrderBook[partnerId][msg.sender][txid] = Order_t({
+      partner_id: partnerId,
+      deadline: 0,
+      state: OrderState.ORDER_STATUS_PENDING,
+      borrower: msg.sender,
+      lender: address(0),
+      lending_cycle: lendingCycle,
+      token_get: tokenGet,
+      amount_get: amountGet,
+      token_pledge: tokenGive,
+      amount_pledge: amountGive,
+      _nonce: nonce,
+      pledge_rate: pledgeRate,
+      interest_rate: interestRate,
+      fee_rate: feeRate
+    });
+    
+    partnerOrderHash[partnerId][msg.sender].push(txid);
+
+    if (tokenGive != 0) {
+        require(msg.value == 0, "msg.value must be zero for non eth give");
+    	status = depositToken(partnerId, tokenGive, amountGive);
+    } else {
+      //deposit eth
+      require(amountGive == msg.value, "amountGive must equal msg.value");
+      deposit(partnerId);
+    }
+    if (status != 0) {
+      return fail("borrow", Error.DEPOSIT_TOKEN);
+    }
+
+    emit Borrow(partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate, msg.sender, txid, status);
+    return 0;
+  }
+
+    //从资金池快速借款
