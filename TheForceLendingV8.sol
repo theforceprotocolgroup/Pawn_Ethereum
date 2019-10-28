@@ -438,3 +438,21 @@ contract TheForceLending is SafeMath, ErrorReporter {
     }
     return 0;
   }
+
+  function balanceOf(bytes32 partnerId, address token, address user) public view returns (uint) {
+    return partnerTokens[partnerId][token][user];
+  }
+
+  function borrow(bytes32 partnerId,//平台标记
+                  address tokenGet, //借出币种地址
+                  uint amountGet, //借出币种数量
+                  address tokenGive, //抵押币种地址
+                  uint amountGive,//抵押币种数量
+                  uint nonce,
+                  uint lendingCycle,
+                  uint pledgeRate,
+                  uint interestRate,
+                  uint feeRate) public payable returns (uint){
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+    bytes32 txid = hash(partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
+    require(partnerOrderBook[partnerId][msg.sender][txid].borrower == address(0), "order already exists");
