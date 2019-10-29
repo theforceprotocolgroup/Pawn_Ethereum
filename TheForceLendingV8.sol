@@ -801,3 +801,25 @@ contract TheForceLending is SafeMath, ErrorReporter {
 
     return 0;
   }
+
+  //逾期强制归还，由合约管理者调用，非borrower，非lender调用，borrower需要支付抵押资产给出借人（本金+利息），平台合作方（手续费）和项目方（手续费），如果还有剩余，剩余部分归还给A
+  function forcerepay(bytes32 partnerId, address borrower, bytes32 hash, address token, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public returns (uint){
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+    
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
+    //require(token != address(0), "invalid forcerepay token address");
+    require(token == partnerOrderBook[partnerId][borrower][hash].token_pledge, "invalid forcerepay token");
+    require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    require(msg.sender == admin, "forcerepay must be admin");
+    require(now > partnerOrderBook[partnerId][borrower][hash].deadline, "cannot forcerepay before deadline");
+    uint status = 0;
+    
+    status = liquidation(partnerId, borrower, hash, token, lenderAmount, offcialFeeAmount, partnerFeeAmount);
+    if (status == 0) {
+      emit Forcerepay(partnerId, borrower, hash, token, msg.sender);
+    } else {
+      return fail("forcerepay", Error.FORCE_REPAY_ERROR);
+    }
+
+    return status;
+  }
