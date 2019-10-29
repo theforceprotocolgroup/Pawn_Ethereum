@@ -854,3 +854,25 @@ contract TheForceLending is SafeMath, ErrorReporter {
 
     return 0;
   }
+
+    //ADDITIONAL HELPERS ADDED FOR TESTING
+    function hash(
+        bytes32 partnerId,
+        address tokenGet,
+        uint amountGet,
+        address tokenGive,
+        uint amountGive,
+        uint nonce,
+        uint lendingCycle,
+        uint pledgeRate,
+        uint interestRate,
+        uint feeRate
+    )
+        public
+        view
+        returns (bytes32)
+    {
+        //return sha256(this, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
+        return sha256(abi.encodePacked(address(this), partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate));
+    }
+}
