@@ -653,3 +653,26 @@ contract TheForceLending is SafeMath, ErrorReporter {
     	fail("cancelOrder", Error.CANCEL_ORDER);
     }
   }
+
+  function callmargin(bytes32 partnerId, address borrower, bytes32 hash, address token, uint amount) public payable returns (uint){
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
+    require(amount > 0, "amount must >0");
+
+    require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    require(partnerOrderBook[partnerId][borrower][hash].token_pledge == token, "invalid pledge token");
+
+    if (token != 0) {
+        require(msg.value == 0, "msg.value must be zero for non eth callmargin");
+        require(safeTransferFrom(token, msg.sender, this, this, amount) == 0, "callmargin safeTransferFrom error");
+    } else {
+        require(amount == msg.value, "amount must equal msg.value");
+    }
+
+    partnerOrderBook[partnerId][borrower][hash].amount_pledge += amount;
+    partnerTokens[partnerId][token][borrower] = safeAdd(partnerTokens[partnerId][token][borrower], amount);
+
+    emit Callmargin(partnerId, borrower, hash, token, amount, msg.sender);
+    return 0;
+  }
