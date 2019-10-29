@@ -547,3 +547,41 @@ contract TheForceLending is SafeMath, ErrorReporter {
     emit Borrow(partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate, msg.sender, txid, status);
     return 0;
   }
+
+  function fastLend(bytes32 partnerId, bytes32 lenderPartnerId, address borrower, bytes32 hash, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public returns (uint) {
+    require(partnerAccounts[partnerId] != address(0), "partnerId must add first");
+    //require(partnerAccounts[lenderPartnerId] != address(0), "lenderPartnerId must add first");
+
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");//order not found
+    //require(partnerOrderBook[partnerId][borrower][hash].borrower != msg.sender, "cannot lend to self");//cannot lend to self
+    //require(partnerOrderBook[partnerId][borrower][hash].token_get == token, "attempt to use an invalid type of token");//attempt to use an invalid type of token
+    require(partnerOrderBook[partnerId][borrower][hash].amount_get == lenderAmount - offcialFeeAmount - partnerFeeAmount, "amount_get != amount - offcialFeeAmount - partnerFeeAmount");//单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人
+    require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != OrderState.ORDER_STATUS_PENDING");
+    address token = partnerOrderBook[partnerId][borrower][hash].token_get;
+    if (token != 0) {
+        require(safeTransferFrom(token, this, this, partnerOrderBook[partnerId][borrower][hash].borrower, partnerOrderBook[partnerId][borrower][hash].amount_get) == 0, 
+          "safeTransferFrom to borrower error");
+        // require(safeTransferFrom(token, this, this, offcialFeeAccount, offcialFeeAmount) == 0, "safeTransferFrom to officicalFeeAccount errror");
+        // require(safeTransferFrom(token, this, this, partnerAccounts[lenderPartnerId], partnerFeeAmount) == 0, "safeTransferFrom to partnerAccounts[lenderPartnerId] error");
+    } else {
+        //require(lenderAmount == msg.value, "lenderAmount must be msg.value");
+        //deposit(lenderPartnerId);
+        if (!sendEth(lenderPartnerId, partnerOrderBook[partnerId][borrower][hash].borrower, token, partnerOrderBook[partnerId][borrower][hash].amount_get)) {
+            return fail("lend", Error.LENDER_SEND_ETH_ERROR);
+        }
+        // if (!sendEth(lenderPartnerId, partnerAccounts[lenderPartnerId], token, partnerFeeAmount)) {
+        //     return fail("lend", Error.LENDER_SEND_ETH_ERROR);
+        // }
+        // if (!sendEth(lenderPartnerId, offcialFeeAccount, token, offcialFeeAmount)) {
+        //     return fail("lend", Error.LENDER_SEND_ETH_ERROR);
+        // }
+    }
+
+    partnerOrderBook[partnerId][borrower][hash].deadline = now + partnerOrderBook[partnerId][borrower][hash].lending_cycle * (1 minutes);
+    //partnerOrderBook[partnerId][borrower][hash].lender = msg.sender;
+    partnerOrderBook[partnerId][borrower][hash].lender = this;
+    partnerOrderBook[partnerId][borrower][hash].state = OrderState.ORDER_STATUS_ACCEPTED;
+
+    emit Lend(partnerId, lenderPartnerId, borrower, hash, token, lenderAmount, msg.sender);
+    return 0;
+  }
