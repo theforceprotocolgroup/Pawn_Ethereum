@@ -509,3 +509,22 @@ contract TheForceLending is SafeMath, ErrorReporter {
     bytes32 txid = hash(partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
     require(partnerOrderBook[partnerId][msg.sender][txid].borrower == address(0), "order already exists");
     require(EIP20Interface(tokenGet).balanceOf(this) >= amountGet, "insuffient balance");
+
+    uint status = 0;
+
+    partnerOrderBook[partnerId][msg.sender][txid] = Order_t({
+      partner_id: partnerId,
+      deadline: 0,
+      state: OrderState.ORDER_STATUS_PENDING,
+      borrower: msg.sender,
+      lender: address(0),
+      lending_cycle: lendingCycle,
+      token_get: tokenGet,
+      amount_get: amountGet,
+      token_pledge: tokenGive,
+      amount_pledge: amountGive,
+      _nonce: nonce,
+      pledge_rate: pledgeRate,
+      interest_rate: interestRate,
+      fee_rate: feeRate
+    });
