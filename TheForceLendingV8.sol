@@ -585,3 +585,44 @@ contract TheForceLending is SafeMath, ErrorReporter {
     emit Lend(partnerId, lenderPartnerId, borrower, hash, token, lenderAmount, msg.sender);
     return 0;
   }
+
+  //A借款，B出借，A到账数量为申请数量，无砍头息，B出借的数量包括A的申请数量+手续费(项目方手续费+平台合作方手续费，手续费可能为0)
+  function lend(bytes32 partnerId, bytes32 lenderPartnerId, address borrower, bytes32 hash, address token, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public payable returns (uint) {
+    require(partnerAccounts[partnerId] != address(0), "partnerId must add first");
+    require(partnerAccounts[lenderPartnerId] != address(0), "lenderPartnerId must add first");
+
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");//order not found
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != msg.sender, "cannot lend to self");//cannot lend to self
+    require(partnerOrderBook[partnerId][borrower][hash].token_get == token, "attempt to use an invalid type of token");//attempt to use an invalid type of token
+    require(partnerOrderBook[partnerId][borrower][hash].amount_get == lenderAmount - offcialFeeAmount - partnerFeeAmount, "amount_get != amount - offcialFeeAmount - partnerFeeAmount");//单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人
+    require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != OrderState.ORDER_STATUS_PENDING");
+
+    if (token != 0) {
+      require(msg.value == 0, "msg.value must be zero for non eth lend");
+      require(safeTransferFrom(token, msg.sender, this, partnerOrderBook[partnerId][borrower][hash].borrower, partnerOrderBook[partnerId][borrower][hash].amount_get) == 0, 
+        "safeTransferFrom to borrower error");
+      require(safeTransferFrom(token, msg.sender, this, offcialFeeAccount, offcialFeeAmount) == 0, "safeTransferFrom to officicalFeeAccount errror");
+      require(safeTransferFrom(token, msg.sender, this, partnerAccounts[lenderPartnerId], partnerFeeAmount) == 0, "safeTransferFrom to partnerAccounts[lenderPartnerId] error");
+
+    } else {
+        require(lenderAmount == msg.value, "lenderAmount must be msg.value");
+        deposit(lenderPartnerId);
+        if (!sendEth(lenderPartnerId, partnerOrderBook[partnerId][borrower][hash].borrower, token, partnerOrderBook[partnerId][borrower][hash].amount_get)) {
+            return fail("lend", Error.LENDER_SEND_ETH_ERROR);
+        }
+        if (!sendEth(lenderPartnerId, partnerAccounts[lenderPartnerId], token, partnerFeeAmount)) {
+            return fail("lend", Error.LENDER_SEND_ETH_ERROR);
+        }
+        if (!sendEth(lenderPartnerId, offcialFeeAccount, token, offcialFeeAmount)) {
+            return fail("lend", Error.LENDER_SEND_ETH_ERROR);
+        }
+    }
+
+    partnerOrderBook[partnerId][borrower][hash].deadline = now + partnerOrderBook[partnerId][borrower][hash].lending_cycle * (1 minutes);
+    partnerOrderBook[partnerId][borrower][hash].lender = msg.sender;
+    partnerOrderBook[partnerId][borrower][hash].state = OrderState.ORDER_STATUS_ACCEPTED;
+
+
+    emit Lend(partnerId, lenderPartnerId, borrower, hash, token, lenderAmount, msg.sender);
+    return 0;
+  }
