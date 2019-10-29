@@ -626,3 +626,30 @@ contract TheForceLending is SafeMath, ErrorReporter {
     emit Lend(partnerId, lenderPartnerId, borrower, hash, token, lenderAmount, msg.sender);
     return 0;
   }
+
+  function cancelOrder(bytes32 partnerId, address borrower, bytes32 hash) public {
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+    
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");//order not found
+    require(partnerOrderBook[partnerId][borrower][hash].borrower == msg.sender || msg.sender == admin,
+      "only borrower or admin can do this operation");//only borrower or contract can do this operation
+    require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != OrderState.ORDER_STATUS_PENDING");
+    uint status = 1;
+    
+    if (partnerOrderBook[partnerId][borrower][hash].token_pledge != 0) {
+    	status = sendToken(partnerId, partnerOrderBook[partnerId][borrower][hash].token_pledge, partnerOrderBook[partnerId][borrower][hash].borrower, partnerOrderBook[partnerId][borrower][hash].amount_pledge);
+    } else {
+        bool ok = sendEth(partnerId, partnerOrderBook[partnerId][borrower][hash].borrower, partnerOrderBook[partnerId][borrower][hash].token_pledge, partnerOrderBook[partnerId][borrower][hash].amount_pledge);
+        if (ok) {
+            status = 0;
+        }
+    }
+
+    if (status == 0) {
+        delete partnerOrderBook[partnerId][borrower][hash];
+        deleteHash(partnerId, borrower, hash);
+	    emit CancelOrder(partnerId, borrower, hash, msg.sender);
+    } else {
+    	fail("cancelOrder", Error.CANCEL_ORDER);
+    }
+  }
