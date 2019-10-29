@@ -1,27 +1,30 @@
-/**
- *Submitted for verification at Etherscan.io on 2019-09-17
+/*
+ * Copyright (c) The Force Protocol Development Team
+ * Submitted for verification at Etherscan.io on 2019-09-17
 */
+
 pragma solidity ^0.4.24;
 
+
 contract SafeMath {
-  function safeMul(uint a, uint b) pure internal returns (uint) {
-    uint c = a * b;
-    assert(a == 0 || c / a == b);
-    return c;
-  }
+    function safeMul(uint a, uint b) pure internal returns (uint) {
+        uint c = a * b;
+        assert(a == 0 || c / a == b);
+        return c;
+    }
 
-  function safeSub(uint a, uint b) pure internal returns (uint) {
-    assert(b <= a);
-    return a - b;
-  }
+    function safeSub(uint a, uint b) pure internal returns (uint) {
+        assert(b <= a);
+        return a - b;
+    }
 
-  function safeAdd(uint a, uint b) pure internal returns (uint) {
-    uint c = a + b;
-    assert(c>=a && c>=b);
-    return c;
-  }
-
+    function safeAdd(uint a, uint b) pure internal returns (uint) {
+        uint c = a + b;
+        assert(c >= a && c >= b);
+        return c;
+    }
 }
+
 
 contract EIP20Interface {
     /* This is a slight change to the ERC20 base standard.
@@ -69,13 +72,14 @@ contract EIP20Interface {
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 }
 
+
 contract ErrorReporter {
 
-    /**
+    /*
       * @dev `error` corresponds to enum Error; `info` corresponds to enum FailureInfo, and `detail` is an arbitrary
       * contract-specific code that enables us to report opaque error codes from upgradeable contracts.
-      **/
-    event Failure(string name, uint error);
+    */
+    event Malfunction(string name, uint error);
 
     enum Error {
         NO_ERROR,
@@ -123,11 +127,12 @@ contract ErrorReporter {
       * @dev use this when reporting a known error from the money market or a non-upgradeable collaborator
       */
     function fail(string name, Error err) internal returns (uint) {
-        emit Failure(name, uint(err));
+        emit Malfunction(name, uint(err));
 
         return uint(err);
     }
 }
+
 
 library ERC20AsmFn {
 
@@ -165,13 +170,15 @@ library ERC20AsmFn {
         return handleReturnData();
     }
 
-    function asmTransferFrom(address _erc20Addr, address _from, address _to, uint256 _value) internal returns (bool result) {
+    function asmTransferFrom(address _erc20Addr, address _from, address _to, uint256 _value) \
+    internal returns (bool result) {
 
         // Must be a contract addr first!
         isContract(_erc20Addr);
 
         // call return false when something wrong
-        require(_erc20Addr.call(bytes4(keccak256("transferFrom(address,address,uint256)")), _from, _to, _value), "asmTransferFrom error");
+        require(_erc20Addr.call(bytes4(\
+        keccak256("transferFrom(address,address,uint256)")), _from, _to, _value), "asmTransferFrom error");
 
         // handle returndata
         return handleReturnData();
@@ -179,188 +186,213 @@ library ERC20AsmFn {
 
 }
 
+
 contract TheForceLending is SafeMath, ErrorReporter {
-  using ERC20AsmFn for EIP20Interface;
+    using ERC20AsmFn for EIP20Interface;
 
-  enum OrderState {
-    ORDER_STATUS_PENDING,
-    ORDER_STATUS_ACCEPTED
-  }
+    enum OrderState {
+        ORDER_STATUS_PENDING,
+        ORDER_STATUS_ACCEPTED
+    }
 
-  struct Order_t {
-    bytes32 partner_id;
-    uint deadline;
-    OrderState state;
+    struct Order_t {
+        bytes32 partner_id;
+        uint deadline;
+        OrderState state;
 
-    address borrower;
-    address lender;
+        address borrower;
+        address lender;
 
-    uint lending_cycle;
+        uint lending_cycle;
 
-    address token_get;
-    uint amount_get;
+        address token_get;
+        uint amount_get;
 
-    address token_pledge;//tokenGive
-    uint amount_pledge;//amountGive
+        address token_pledge;//tokenGive
+        uint amount_pledge;//amountGive
 
-    uint _nonce;
+        uint _nonce;
 
-    uint pledge_rate;
-    uint interest_rate;
-    uint fee_rate;
-  }
+        uint pledge_rate;
+        uint interest_rate;
+        uint fee_rate;
+    }
 
-  address public admin; //the admin address
-  address public offcialFeeAccount; //the account that will receive fees
-  bytes32 public offcialPartnerId; //the offical partnerId for fastborrow and fastlender
-  uint public saveRate; // 1+interest rate per block for savings in fixed-point
+    address public admin; //the admin address
+    address public offcialFeeAccount; //the account that will receive fees
+    bytes32 public offcialPartnerId; //the offical partnerId for fastborrow and fastlender
+    uint public saveRate; // 1+interest rate per block for savings in fixed-point
 
-   mapping (bytes32 => address) public partnerAccounts;// bytes32-> address, eg: platformA->0xa{40}, platfromB->0xb{40}
-   mapping (bytes32 => mapping (address => mapping (address => uint))) public partnerTokens;// platform->tokenContract->address->balance
-   mapping (bytes32 => mapping (address => mapping (bytes32 => Order_t))) public partnerOrderBook;// platform->address->hash->order_t
-   mapping (bytes32 => mapping (address => mapping (address => uint))) prevUpdateBlock; // platform->tokenContract->address->Block number of last update block
-   mapping (address => uint) public creditScore;//信用分，信用分高享受手续费优惠
-   mapping (bytes32 => mapping (address => bytes32[])) partnerOrderHash;
+    // bytes32-> address, eg: platformA->0xa{40}, platfromB->0xb{40}
+    mapping (bytes32 => address) public partnerAccounts;
+    // platform->tokenContract->address->balance
+    mapping (bytes32 => mapping (address => mapping (address => uint))) public partnerTokens;
+    // platform->address->hash->order_t
+    mapping (bytes32 => mapping (address => mapping (bytes32 => Order_t))) public partnerOrderBook;
+    // platform->tokenContract->address->Block number of last update block
+    mapping (bytes32 => mapping (address => mapping (address => uint))) prevUpdateBlock;
+    //Credit score, high credit score, enjoy the fee discount（信用分，信用分高享受手续费优惠）
+    mapping (address => uint) public creditScore;
+    mapping (bytes32 => mapping (address => bytes32[])) partnerOrderHash;
 
-  function numHash(bytes32 partnerId, address usr) public view returns (uint) {
-      return partnerOrderHash[partnerId][usr].length;
-  }
+    function numHash(bytes32 partnerId, address usr) public view returns (uint) {
+        return partnerOrderHash[partnerId][usr].length;
+    }
 
-  function listHash(bytes32 partnerId, address usr) public view returns (bytes32[]) {
-      return partnerOrderHash[partnerId][usr];
-  }
+    function listHash(bytes32 partnerId, address usr) public view returns (bytes32[]) {
+        return partnerOrderHash[partnerId][usr];
+    }
 
-  function deleteHashByIndex(bytes32 partnerId, address usr, uint index) internal {
-     require(index < partnerOrderHash[partnerId][usr].length, "out of index");
-     delete partnerOrderHash[partnerId][usr][index];
-  }
-  
-  function deleteHash(bytes32 partnerId, address usr, bytes32 hash) internal {
-      uint index = 0;
-      for (uint i = 0; i < partnerOrderHash[partnerId][usr].length; i++) {
-          if (partnerOrderHash[partnerId][usr][i] == hash) {
-              index = i;
-              break;
-          }
-      }
-      //Delete With Shift
-      if (partnerOrderHash[partnerId][usr].length >= 1) {
-        for (uint j = index; j < partnerOrderHash[partnerId][usr].length - 1; j++) {
-          partnerOrderHash[partnerId][usr][j] = partnerOrderHash[partnerId][usr][j + 1];
+    function deleteHashByIndex(bytes32 partnerId, address usr, uint index) internal {
+        require(index < partnerOrderHash[partnerId][usr].length, "out of index");
+        delete partnerOrderHash[partnerId][usr][index];
+    }
+   
+    function deleteHash(bytes32 partnerId, address usr, bytes32 hash) internal {
+        uint index = 0;
+        for (uint i = 0; i < partnerOrderHash[partnerId][usr].length; i++) {
+            if (partnerOrderHash[partnerId][usr][i] == hash) {
+                index = i;
+                break;
+            }
         }
-        deleteHashByIndex(partnerId, usr, partnerOrderHash[partnerId][usr].length - 1);
-        partnerOrderHash[partnerId][usr].length--;
-      }
-  }
+      //Delete With Shift
+        if (partnerOrderHash[partnerId][usr].length >= 1) {
+            for (uint j = index; j < partnerOrderHash[partnerId][usr].length - 1; j++) {
+                partnerOrderHash[partnerId][usr][j] = partnerOrderHash[partnerId][usr][j + 1];
+            }
+            deleteHashByIndex(partnerId, usr, partnerOrderHash[partnerId][usr].length - 1);
+            partnerOrderHash[partnerId][usr].length--;
+        }
+    }
 
-  event Borrow(bytes32 partnerId,
+    event Borrow(bytes32 partnerId,
                 address tokenGet,
-                  uint amountGet,
-                  address tokenGive,
-                  uint amountGive,
-                  uint nonce,
-                  uint lendingCycle,
-                  uint pledgeRate,
-                  uint interestRate,
-                  uint feeRate,
-                  address user,
-                  bytes32 hash,
-                  uint status);
-  event Lend(bytes32 partnerId, bytes32 lenderPartnerId, address borrower, bytes32 txId, address token, uint amount, address give);//txId为借款单txId
-  event CancelOrder(bytes32 partnerId, address borrower, bytes32 txId, address by);//取消借款单，只能被borrower或者合约取消
-  event Callmargin(bytes32 partnerId, address borrower, bytes32 txId, address token, uint amount, address by);
-  event Repay(bytes32 partnerId, address borrower, bytes32 txId, address token, uint amount, address by);
-  event Closepstion(bytes32 partnerId, address borrower, bytes32 txId, address token, address by);
-  event Forcerepay(bytes32 partnerId, address borrower, bytes32 txId, address token, address by);
-  event Deposit(bytes32 partnerId, address token, address user, uint256 amount, uint256 balance);
-  event SendEth(bytes32 partnerId, address token, address user, uint256 amount, uint256 balance);
-
-  constructor(address admin_, address offcialFeeAccount_) public {
-    admin = admin_;
-    offcialFeeAccount = offcialFeeAccount_;
-  }
-
-  function() public payable {
-    revert("fallback can't be payable");
- }
-
-  modifier onlyAdmin() {
-    require(msg.sender == admin, "only admin can do this!");
-    _;
-  }
-
-  function changeAdmin(address admin_) public onlyAdmin {
-    admin = admin_;
-  }
-
-  function changeFeeAccount(address offcialFeeAccount_) public onlyAdmin {
-    offcialFeeAccount = offcialFeeAccount_;
-  }
-
-  function setSaveRate(uint rate) public onlyAdmin {
-		saveRate = rate;
-  }
-
-  function setOffcialPartnerId(bytes32 id) public onlyAdmin {
-    offcialPartnerId = id;
-  }
-
-  //增
-  function addPartner(bytes32 partnerId, address partner) public onlyAdmin {
-    require(partnerAccounts[partnerId] == address(0), "already exists!");
-    partnerAccounts[partnerId] = partner;
-  }
-
-  //删
-  function delPartner(bytes32 partnerId) public onlyAdmin {
-    delete partnerAccounts[partnerId];
-  }
-
-  //改
-  function modPartner(bytes32 partnerId, address partner) public onlyAdmin {
-    require(partnerAccounts[partnerId] != address(0), "not exists!");
-    partnerAccounts[partnerId] = partner;
-  }
-
-  //查
-  function getPartner(bytes32 partnerId) public view returns (address) {
-    return partnerAccounts[partnerId];
-  }
+                    uint amountGet,
+                    address tokenGive,
+                    uint amountGive,
+                    uint nonce,
+                    uint lendingCycle,
+                    uint pledgeRate,
+                    uint interestRate,
+                    uint feeRate,
+                    address user,
+                    bytes32 hash,
+                    uint status);
   
-  //充值ETH
-  function deposit(bytes32 partnerId) public payable  {
-    partnerTokens[partnerId][address(0)][msg.sender] = safeAdd(partnerTokens[partnerId][address(0)][msg.sender], msg.value);
-    emit Deposit(partnerId, address(0), msg.sender, msg.value, partnerTokens[partnerId][address(0)][msg.sender]);
-  }
+  //txId is the loan order txId（txId为借款单txId）
+    event Lend(bytes32 partnerId, bytes32 lenderPartnerId, address borrower, \
+    bytes32 txId, address token, uint amount, address give);
+  //Cancellation of the loan order can only be cancelled by the borrower or contract（取消借款单，只能被borrower或者合约取消）
+  
+    event CancelOrder(bytes32 partnerId, address borrower, bytes32 txId, address by);
+  
+    event Callmargin(bytes32 partnerId, address borrower, bytes32 txId, address token, uint amount, address by);
+  
+    event Repay(bytes32 partnerId, address borrower, bytes32 txId, address token, uint amount, address by);
+  
+    event Closepstion(bytes32 partnerId, address borrower, bytes32 txId, address token, address by);
+  
+    event Forcerepay(bytes32 partnerId, address borrower, bytes32 txId, address token, address by);
+  
+    event Deposit(bytes32 partnerId, address token, address user, uint256 amount, uint256 balance);
+  
+    event SendEth(bytes32 partnerId, address token, address user, uint256 amount, uint256 balance);
 
-  function sendEth(bytes32 partnerId, address dst, address token, uint256 amount) internal returns (bool success) {
-    if (token != 0) revert("invalid token address!");
-    if (partnerTokens[partnerId][token][msg.sender] < amount) revert("invalid amount");//lend时，dst没有eth，所以取消判断
-    partnerTokens[partnerId][token][msg.sender] = safeSub(partnerTokens[partnerId][token][msg.sender], amount);
-    dst.transfer(amount);
+    constructor(address admin_, address offcialFeeAccount_) public {
+    admin = admin_;
+    offcialFeeAccount = offcialFeeAccount_;
+    }
 
-    emit SendEth(partnerId, token, dst, amount, partnerTokens[partnerId][token][msg.sender]);
-    return true;
-  }
+function() public payable {
+revert("fallback can't be payable");
+}
 
-  //计算单利, interestPerBlock, 5%->5e16
-  function calcSimpleInterest(uint interestPerBlock, uint numBlocks) public view returns (uint interest) {
-    return interestPerBlock * numBlocks;
-  }
+modifier onlyAdmin() {
+require(msg.sender == admin, "only admin can do this!");
+;
+}
 
-  //充值token，项目方首先调用，填充资金池，充入USDT和DAI,按块计算利息
-  function depositSavings(bytes32 partnerId, address token, uint amount) public returns (uint) {
-    //remember to call Token(address).approve(this, amount) or this contract will not be able to do the transfer on your behalf.
-    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+function changeAdmin(address admin_) public onlyAdmin {
+admin = admin_;
+}
 
-    require(safeTransferFrom(token, msg.sender, this, this, amount) == 0, "safeTransferFrom error");
-    partnerTokens[partnerId][token][msg.sender] = safeAdd(partnerTokens[partnerId][token][msg.sender], amount);
+function changeFeeAccount(address offcialFeeAccount_) public onlyAdmin {
+offcialFeeAccount = offcialFeeAccount_;
+}
 
-    prevUpdateBlock[partnerId][token][msg.sender] = block.number;
-    return 0;
-  }
+function setSaveRate(uint rate) public onlyAdmin {
+saveRate = rate;
+}
 
-  //提现存款和利息
+function setOffcialPartnerId(bytes32 id) public onlyAdmin {
+offcialPartnerId = id;
+}
+
+//add（增）
+function addPartner(bytes32 partnerId, address partner) public onlyAdmin {
+require(partnerAccounts[partnerId] == address(0), "already exists!");
+partnerAccounts[partnerId] = partner;
+}
+
+//Delete（删）
+function delPartner(bytes32 partnerId) public onlyAdmin {
+delete partnerAccounts[partnerId];
+}
+
+//Modify（改）
+function modPartner(bytes32 partnerId, address partner) public onlyAdmin {
+require(partnerAccounts[partnerId] != address(0), "not exists!");
+partnerAccounts[partnerId] = partner;
+}
+
+//Check（查）
+function getPartner(bytes32 partnerId) public view returns (address) {
+return partnerAccounts[partnerId];
+}
+  
+//Deposit ETH(充值ETH)
+function deposit(bytes32 partnerId) public payable  {
+partnerTokens[partnerId][address(0)][msg.sender] = \
+safeAdd(partnerTokens[partnerId][address(0)][msg.sender], msg.value);
+emit Deposit(partnerId, address(0), msg.sender, msg.value, \
+partnerTokens[partnerId][address(0)][msg.sender]);
+}
+
+function sendEth(bytes32 partnerId, address dst, address token, uint256 amount) internal returns (bool success) {
+if (token != 0) revert("invalid token address!");
+//When lend, dst has no eth, so cancel the judgment.（lend时，dst没有eth，所以取消判断）
+if (partnerTokens[partnerId][token][msg.sender] < amount) revert("invalid amount");
+partnerTokens[partnerId][token][msg.sender] = safeSub(partnerTokens[partnerId][token][msg.sender], amount);
+dst.transfer(amount);
+
+emit SendEth(partnerId, token, dst, amount, partnerTokens[partnerId][token][msg.sender]);
+return true;
+}
+
+//Calculate interest of each block（计算单利）, interestPerBlock, 5%->5e16
+function calcSimpleInterest(uint interestPerBlock, uint numBlocks) public view returns (uint interest) {
+return interestPerBlock * numBlocks;
+}
+
+/*
+Deposit token, smart contract owner calls firstly, fills the pool of funds,
+Deposit USDT and DAI, calculates interest by block.
+充值token，合约所有者首先调用，填充资金池，充入USDT和DAI,按块计算利息*/
+function depositSavings(bytes32 partnerId, address token, uint amount) public returns (uint) {
+/*
+Remember to call Token(address).approve(this, amount) or contract will not be able to do the transfer on your behalf.
+*/
+require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+
+require(safeTransferFrom(token, msg.sender, this, this, amount) == 0, "safeTransferFrom error");
+partnerTokens[partnerId][token][msg.sender] = safeAdd(partnerTokens[partnerId][token][msg.sender], amount);
+
+prevUpdateBlock[partnerId][token][msg.sender] = block.number;
+return 0;
+}
+
+//Withdrawal of deposits and interest（提现存款和利息）
   function withdrawSavings(bytes32 partnerId, address token, uint amount) public returns (uint) {
     require(partnerAccounts[partnerId] != address(0), "partnerId must add first");
     require(token != 0, "invalid token address");
@@ -373,10 +405,10 @@ contract TheForceLending is SafeMath, ErrorReporter {
         return uint(Error.WITHDRAW_TOKEN_TRANSER_ERROR);
     }
 
-    //FIXME: 添加利息检查，防止用户提取多余利息
+    //FIXME: Add interest check to prevent users from withdrawing excess interest（添加利息检查，防止用户提取多余利息）
     if (block.number >= prevUpdateBlock[partnerId][token][msg.sender]) {
       uint interestAmount = amount*calcSimpleInterest(saveRate, block.number - prevUpdateBlock[partnerId][token][msg.sender])/1e18;
-      //发送利息给用户
+      //Send interest to the user（发送利息给用户）
       if (!EIP20Interface(token).asmTransfer(msg.sender, interestAmount)) {
           return uint(Error.WITHDRAW_TOKEN_TRANSER_ERROR);
       }
@@ -443,11 +475,11 @@ contract TheForceLending is SafeMath, ErrorReporter {
     return partnerTokens[partnerId][token][user];
   }
 
-  function borrow(bytes32 partnerId,//平台标记
-                  address tokenGet, //借出币种地址
-                  uint amountGet, //借出币种数量
-                  address tokenGive, //抵押币种地址
-                  uint amountGive,//抵押币种数量
+  function borrow(bytes32 partnerId,//Partner platform mark（平台标记）
+                  address tokenGet, //Lending token address（借出币种地址）
+                  uint amountGet, //Lending token amount（借出币种数量）
+                  address tokenGive, //Pawn token address（抵押币种地址）
+                  uint amountGive,//Pawn token amount（抵押币种数量）
                   uint nonce,
                   uint lendingCycle,
                   uint pledgeRate,
@@ -494,12 +526,12 @@ contract TheForceLending is SafeMath, ErrorReporter {
     return 0;
   }
 
-    //从资金池快速借款
-    function fastBorrow(bytes32 partnerId,//平台标记
-                  address tokenGet, //借出币种地址，可借出USDT，DAI
-                  uint amountGet, //借出币种数量
-                  address tokenGive, //抵押币种地址，可抵押ETH,WBTC,TBTC（ERC20），ETH为0
-                  uint amountGive,//抵押币种数量
+    //Borrowing form fund pool rapidly（从资金池快速借款）
+    function fastBorrow(bytes32 partnerId,//Partner platform mark（平台标记）
+                  address tokenGet, //Lending token address, including USDT, DAI（借出币种地址，可借出USDT，DAI）
+                  uint amountGet, //Lending token amount（借出币种数量）
+                  address tokenGive, //Pawn token address, including ETH, WBTC, TBTC(ERC20), ETH is 0.（抵押币种地址，可抵押ETH,WBTC,TBTC（ERC20），ETH为0）
+                  uint amountGive,//Pawn token amount（抵押币种数量）
                   uint nonce,
                   uint lendingCycle,
                   uint pledgeRate,
@@ -541,7 +573,10 @@ contract TheForceLending is SafeMath, ErrorReporter {
       return fail("borrow", Error.DEPOSIT_TOKEN);
     }
 
-    //合约可以出借,出借人是合约，必须加this，表示msg.sender是合约地址
+/*
+合约可以出借,出借人是合约，必须加this，表示msg.sender是合约地址
+The contract can be used as a lender. If the lender is a contract, "this" must be added to indicate that msg.sender is the contract address.
+*/
     fastLend(partnerId,      offcialPartnerId,       msg.sender,       txid,       amountGet,       0,       0);
 
     emit Borrow(partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate, msg.sender, txid, status);
@@ -555,7 +590,8 @@ contract TheForceLending is SafeMath, ErrorReporter {
     require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");//order not found
     //require(partnerOrderBook[partnerId][borrower][hash].borrower != msg.sender, "cannot lend to self");//cannot lend to self
     //require(partnerOrderBook[partnerId][borrower][hash].token_get == token, "attempt to use an invalid type of token");//attempt to use an invalid type of token
-    require(partnerOrderBook[partnerId][borrower][hash].amount_get == lenderAmount - offcialFeeAmount - partnerFeeAmount, "amount_get != amount - offcialFeeAmount - partnerFeeAmount");//单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人
+    //Insufficient single lending amount, we will consider introducing multiple lenders in the future, and now only consider one lender（单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人）
+    require(partnerOrderBook[partnerId][borrower][hash].amount_get == lenderAmount - offcialFeeAmount - partnerFeeAmount, "amount_get != amount - offcialFeeAmount - partnerFeeAmount");
     require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != OrderState.ORDER_STATUS_PENDING");
     address token = partnerOrderBook[partnerId][borrower][hash].token_get;
     if (token != 0) {
@@ -586,7 +622,10 @@ contract TheForceLending is SafeMath, ErrorReporter {
     return 0;
   }
 
-  //A借款，B出借，A到账数量为申请数量，无砍头息，B出借的数量包括A的申请数量+手续费(项目方手续费+平台合作方手续费，手续费可能为0)
+  /*
+  A borrowing, B lending, A's arrival amount is the number of applications, B's lending quantity includes: A's application quantity + handling fee (smart contract handling fee + platform partner fee, handling fee may be 0)
+  （A借款，B出借，A的到账数量为申请数量，B出借的数量包括：A的申请数量+手续费（智能合约手续费+平台合作方手续费，手续费可能为0））
+  */
   function lend(bytes32 partnerId, bytes32 lenderPartnerId, address borrower, bytes32 hash, address token, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public payable returns (uint) {
     require(partnerAccounts[partnerId] != address(0), "partnerId must add first");
     require(partnerAccounts[lenderPartnerId] != address(0), "lenderPartnerId must add first");
@@ -594,7 +633,8 @@ contract TheForceLending is SafeMath, ErrorReporter {
     require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");//order not found
     require(partnerOrderBook[partnerId][borrower][hash].borrower != msg.sender, "cannot lend to self");//cannot lend to self
     require(partnerOrderBook[partnerId][borrower][hash].token_get == token, "attempt to use an invalid type of token");//attempt to use an invalid type of token
-    require(partnerOrderBook[partnerId][borrower][hash].amount_get == lenderAmount - offcialFeeAmount - partnerFeeAmount, "amount_get != amount - offcialFeeAmount - partnerFeeAmount");//单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人
+    //Insufficient single lending amount, we will consider introducing multiple lenders in the future, and now only consider one lender（单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人）
+    require(partnerOrderBook[partnerId][borrower][hash].amount_get == lenderAmount - offcialFeeAmount - partnerFeeAmount, "amount_get != amount - offcialFeeAmount - partnerFeeAmount");
     require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != OrderState.ORDER_STATUS_PENDING");
 
     if (token != 0) {
@@ -677,7 +717,7 @@ contract TheForceLending is SafeMath, ErrorReporter {
     return 0;
   }
 
-  //A还款，需要支付本金+利息给出借方，给项目方和平台合作方手续费
+  //When A repays, pay the principal + interest to the lender, and pay the smart contract and platform partner fee.（A还款，需要支付本金+利息给出借方，给合约拥有人和平台合作方手续费）
   function repay(bytes32 partnerId, address borrower, bytes32 hash, address token, uint repayAmount, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public payable returns (uint){
     require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
 
@@ -685,14 +725,17 @@ contract TheForceLending is SafeMath, ErrorReporter {
     require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
     //require(token != address(0), "invalid token");
     require(token == partnerOrderBook[partnerId][borrower][hash].token_get, "invalid repay token");
-    //还款数量，为借款数量加上利息加上项目方手续费+合作方手续费
+    /*
+    Repayment amount = loan amount + interest + smart contract handling fee + partner fee
+    （还款数量，为借款数量加上利息加上合约拥有人的手续费+合作方手续费）
+    */
     require(repayAmount == lenderAmount + offcialFeeAmount + partnerFeeAmount, "invalid repay amount");
     require(lenderAmount >= partnerOrderBook[partnerId][borrower][hash].amount_get, "invalid lender amount");
     require(msg.sender == partnerOrderBook[partnerId][borrower][hash].borrower, "invalid repayer, must be borrower");
     uint status = 1;
 
     if (token != address(0)) {
-        //允许contract花费借款者的所借的token+利息token
+        //Allow contract to use the borrower's borrowed token + interest token（允许contract花费借款者的所借的token+利息token）
         if (EIP20Interface(token).allowance(msg.sender, address(this)) < repayAmount) {
             return fail("repay", Error.REPAY_ALLOWANCE_ERROR);
         }
@@ -721,7 +764,7 @@ contract TheForceLending is SafeMath, ErrorReporter {
         }
 
     } else {
-        //还款ETH
+        //Repayment of ETH（还款ETH）
         require(repayAmount == msg.value, "amount must be msg.value");
         deposit(partnerId);
         if (!sendEth(partnerId, partnerOrderBook[partnerId][borrower][hash].lender, token, partnerOrderBook[partnerId][borrower][hash].amount_get)) {
@@ -755,24 +798,28 @@ contract TheForceLending is SafeMath, ErrorReporter {
     require(msg.sender == admin, "liquidation must be admin");
 
     if (token != 0) {
+        //The contract manager sends the pawn asset to the lender, and the amount is passed in from the upper layer.
         //合约管理员发送抵押资产到出借人,数量由上层传入
         partnerTokens[partnerId][token][borrower] = safeSub(partnerTokens[partnerId][token][borrower], lenderAmount);
         if (!EIP20Interface(token).asmTransfer(partnerOrderBook[partnerId][borrower][hash].lender, lenderAmount)) {
             return fail("liquidation", Error.FORCE_REPAY_TX_ERROR);
         }
 
+        //The contract manager sends the pawn assets to the platform partner, and the amount is passed in from the upper layer.
         //合约管理员发送抵押资产到平台合作方,数量由上层传入
         partnerTokens[partnerId][token][borrower] = safeSub(partnerTokens[partnerId][token][borrower], partnerFeeAmount);
         if (!EIP20Interface(token).asmTransfer(partnerAccounts[partnerId], partnerFeeAmount)) {
             return fail("liquidation", Error.FORCE_REPAY_TX_ERROR);
         }
 
-        //合约管理员发送抵押资产到项目方,数量由上层传入
+        //The contract manager sends the pawn asset to the smart contract owner, the amount is passed in from the upper layer
+        //合约管理员发送抵押资产到合约拥有人，数量由上层传入
         partnerTokens[partnerId][token][borrower] = safeSub(partnerTokens[partnerId][token][borrower], offcialFeeAmount);
         if (!EIP20Interface(token).asmTransfer(offcialFeeAccount, offcialFeeAmount)) {
             return fail("liquidation", Error.FORCE_REPAY_TX_ERROR);
         }
 
+        //The contract manager sends the remaining pawn assets to the borrower
         //合约管理员发送剩余抵押资产到借款方
         if (partnerTokens[partnerId][token][borrower] > 0) {
           if (!EIP20Interface(token).asmTransfer(borrower, partnerTokens[partnerId][token][borrower])) {
@@ -802,7 +849,12 @@ contract TheForceLending is SafeMath, ErrorReporter {
     return 0;
   }
 
-  //逾期强制归还，由合约管理者调用，非borrower，非lender调用，borrower需要支付抵押资产给出借人（本金+利息），平台合作方（手续费）和项目方（手续费），如果还有剩余，剩余部分归还给A
+  /*
+  Overdue mandatory return, called by the contract manager, non-borrower, non-lender call,
+  borrower needs to pay the pawn asset to the borrower (principal + interest), platform partner (handling fee) and smart contract owner (handling fee), 
+  if there is remaining, the rest is returned to A.
+  （逾期强制归还，由合约管理者调用，非borrower，非lender调用，borrower需要支付抵押资产给出借人（本金+利息），平台合作方（手续费）和项目方（手续费），如果还有剩余，剩余部分归还给A）
+  */
   function forcerepay(bytes32 partnerId, address borrower, bytes32 hash, address token, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public returns (uint){
     require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
     
@@ -824,7 +876,11 @@ contract TheForceLending is SafeMath, ErrorReporter {
     return status;
   }
 
-  //价格波动平仓，borrower需要支付抵押资产给出借人（本金+利息），项目方（手续费）和平台合作方（手续费），如果还有剩余，剩余部分归还给A
+  /*
+  The position caused by price fluctuations, the borrower needs to pay the pawn assets to the borrower (principal + interest), the project party (handling fee) and the platform partner (handling fee),
+  if there is still surplus, the rest is returned to A
+  价格波动平仓，borrower需要支付抵押资产给出借人（本金+利息），项目方（手续费）和平台合作方（手续费），如果还有剩余，剩余部分归还给A
+  */
   function closepstion(bytes32 partnerId, address borrower, bytes32 hash, address token, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public returns (uint){
     require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
     
@@ -835,7 +891,7 @@ contract TheForceLending is SafeMath, ErrorReporter {
     require(msg.sender == admin, "closepstion must be admin");
     uint status = 0;
 
-    //未逾期
+    //Not overdue（未逾期）
     if (partnerOrderBook[partnerId][borrower][hash].deadline > now) {
       if (msg.sender != admin) {
         //only admin of this contract can do this operation before deadline
