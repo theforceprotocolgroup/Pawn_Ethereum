@@ -823,3 +823,34 @@ contract TheForceLending is SafeMath, ErrorReporter {
 
     return status;
   }
+
+  //价格波动平仓，borrower需要支付抵押资产给出借人（本金+利息），项目方（手续费）和平台合作方（手续费），如果还有剩余，剩余部分归还给A
+  function closepstion(bytes32 partnerId, address borrower, bytes32 hash, address token, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public returns (uint){
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+    
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
+    //require(token != address(0), "invalid token");
+    require(token == partnerOrderBook[partnerId][borrower][hash].token_pledge, "invalid token");
+    require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    require(msg.sender == admin, "closepstion must be admin");
+    uint status = 0;
+
+    //未逾期
+    if (partnerOrderBook[partnerId][borrower][hash].deadline > now) {
+      if (msg.sender != admin) {
+        //only admin of this contract can do this operation before deadline
+        return fail("closepstion", Error.CLOSE_POSITION_MUST_ADMIN_BEFORE_DEADLINE);
+      }
+    } else {
+      if (!(msg.sender == admin || msg.sender == partnerOrderBook[partnerId][borrower][hash].lender)) {
+        //only lender or admin of this contract can do this operation
+        return fail("closepstion", Error.CLOSE_POSITION_MUST_ADMIN_OR_LENDER_AFTER_DEADLINE);
+      }
+    }
+
+    status = liquidation(partnerId, borrower, hash, token, lenderAmount, offcialFeeAmount, partnerFeeAmount);
+
+    emit Closepstion(partnerId, borrower, hash, token, address(this));
+
+    return 0;
+  }
