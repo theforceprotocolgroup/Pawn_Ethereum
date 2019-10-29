@@ -746,3 +746,58 @@ contract TheForceLending is SafeMath, ErrorReporter {
 
     return status;
   }
+
+  function liquidation(bytes32 partnerId, address borrower, bytes32 hash, address token, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) internal returns (uint) {
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
+    require(token == partnerOrderBook[partnerId][borrower][hash].token_pledge, "invalid token");
+    require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    require(msg.sender == admin, "liquidation must be admin");
+
+    if (token != 0) {
+        //合约管理员发送抵押资产到出借人,数量由上层传入
+        partnerTokens[partnerId][token][borrower] = safeSub(partnerTokens[partnerId][token][borrower], lenderAmount);
+        if (!EIP20Interface(token).asmTransfer(partnerOrderBook[partnerId][borrower][hash].lender, lenderAmount)) {
+            return fail("liquidation", Error.FORCE_REPAY_TX_ERROR);
+        }
+
+        //合约管理员发送抵押资产到平台合作方,数量由上层传入
+        partnerTokens[partnerId][token][borrower] = safeSub(partnerTokens[partnerId][token][borrower], partnerFeeAmount);
+        if (!EIP20Interface(token).asmTransfer(partnerAccounts[partnerId], partnerFeeAmount)) {
+            return fail("liquidation", Error.FORCE_REPAY_TX_ERROR);
+        }
+
+        //合约管理员发送抵押资产到项目方,数量由上层传入
+        partnerTokens[partnerId][token][borrower] = safeSub(partnerTokens[partnerId][token][borrower], offcialFeeAmount);
+        if (!EIP20Interface(token).asmTransfer(offcialFeeAccount, offcialFeeAmount)) {
+            return fail("liquidation", Error.FORCE_REPAY_TX_ERROR);
+        }
+
+        //合约管理员发送剩余抵押资产到借款方
+        if (partnerTokens[partnerId][token][borrower] > 0) {
+          if (!EIP20Interface(token).asmTransfer(borrower, partnerTokens[partnerId][token][borrower])) {
+              return fail("liquidation", Error.FORCE_REPAY_TX_ERROR);
+          } else {
+              partnerTokens[partnerId][token][borrower] = 0;
+          }
+        }
+    } else {
+        //eth pledge
+        if (!sendEth(partnerId, partnerOrderBook[partnerId][borrower][hash].lender, token, lenderAmount)) {
+            return fail("liquidation", Error.FORCE_REPAY_SEND_ETH_ERROR);
+        }
+        if (!sendEth(partnerId, partnerAccounts[partnerId], token, partnerFeeAmount)) {
+            return fail("liquidation", Error.FORCE_REPAY_SEND_ETH_ERROR);
+        }
+        if (!sendEth(partnerId, offcialFeeAccount, token, offcialFeeAmount)) {
+            return fail("liquidation", Error.FORCE_REPAY_SEND_ETH_ERROR);
+        }
+
+        require(sendEth(partnerId, borrower, token, partnerTokens[partnerId][token][borrower]), "sendEth to borrower error");
+    }
+
+    delete partnerOrderBook[partnerId][borrower][hash];
+    deleteHash(partnerId, borrower, hash);
+
+    return 0;
+  }
