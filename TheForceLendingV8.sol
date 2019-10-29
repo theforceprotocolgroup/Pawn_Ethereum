@@ -495,3 +495,17 @@ contract TheForceLending is SafeMath, ErrorReporter {
   }
 
     //从资金池快速借款
+    function fastBorrow(bytes32 partnerId,//平台标记
+                  address tokenGet, //借出币种地址，可借出USDT，DAI
+                  uint amountGet, //借出币种数量
+                  address tokenGive, //抵押币种地址，可抵押ETH,WBTC,TBTC（ERC20），ETH为0
+                  uint amountGive,//抵押币种数量
+                  uint nonce,
+                  uint lendingCycle,
+                  uint pledgeRate,
+                  uint interestRate,
+                  uint feeRate) public payable returns (uint){
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+    bytes32 txid = hash(partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate);
+    require(partnerOrderBook[partnerId][msg.sender][txid].borrower == address(0), "order already exists");
+    require(EIP20Interface(tokenGet).balanceOf(this) >= amountGet, "insuffient balance");
