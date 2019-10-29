@@ -528,3 +528,22 @@ contract TheForceLending is SafeMath, ErrorReporter {
       interest_rate: interestRate,
       fee_rate: feeRate
     });
+
+    if (tokenGive != 0) {
+      require(msg.value == 0, "msg.value must be zero for non eth give");
+    	status = depositToken(partnerId, tokenGive, amountGive);
+    } else {
+      //deposit eth
+      require(amountGive == msg.value, "amountGive must equal msg.value");
+      deposit(partnerId);
+    }
+    if (status != 0) {
+      return fail("borrow", Error.DEPOSIT_TOKEN);
+    }
+
+    //合约可以出借,出借人是合约，必须加this，表示msg.sender是合约地址
+    fastLend(partnerId,      offcialPartnerId,       msg.sender,       txid,       amountGet,       0,       0);
+
+    emit Borrow(partnerId, tokenGet, amountGet, tokenGive, amountGive, nonce, lendingCycle, pledgeRate, interestRate, feeRate, msg.sender, txid, status);
+    return 0;
+  }
