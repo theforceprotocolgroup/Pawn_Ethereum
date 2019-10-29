@@ -676,3 +676,73 @@ contract TheForceLending is SafeMath, ErrorReporter {
     emit Callmargin(partnerId, borrower, hash, token, amount, msg.sender);
     return 0;
   }
+
+  //A还款，需要支付本金+利息给出借方，给项目方和平台合作方手续费
+  function repay(bytes32 partnerId, address borrower, bytes32 hash, address token, uint repayAmount, uint lenderAmount, uint offcialFeeAmount, uint partnerFeeAmount) public payable returns (uint){
+    require(partnerAccounts[partnerId] != address(0), "parnerId must add first");
+
+    require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
+    require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+    //require(token != address(0), "invalid token");
+    require(token == partnerOrderBook[partnerId][borrower][hash].token_get, "invalid repay token");
+    //还款数量，为借款数量加上利息加上项目方手续费+合作方手续费
+    require(repayAmount == lenderAmount + offcialFeeAmount + partnerFeeAmount, "invalid repay amount");
+    require(lenderAmount >= partnerOrderBook[partnerId][borrower][hash].amount_get, "invalid lender amount");
+    require(msg.sender == partnerOrderBook[partnerId][borrower][hash].borrower, "invalid repayer, must be borrower");
+    uint status = 1;
+
+    if (token != address(0)) {
+        //允许contract花费借款者的所借的token+利息token
+        if (EIP20Interface(token).allowance(msg.sender, address(this)) < repayAmount) {
+            return fail("repay", Error.REPAY_ALLOWANCE_ERROR);
+        }
+        
+        if (EIP20Interface(token).balanceOf(msg.sender) < repayAmount) {
+            return fail("repay", Error.REPAY_BALANCE_ERROR);
+        }
+
+        if (!EIP20Interface(token).asmTransferFrom(msg.sender, partnerOrderBook[partnerId][borrower][hash].lender, lenderAmount)) {
+            return fail("repay", Error.REPAY_TX_ERROR);
+        }
+
+        if (!EIP20Interface(token).asmTransferFrom(msg.sender, offcialFeeAccount, offcialFeeAmount)) {
+            return fail("repay", Error.REPAY_TX_ERROR);
+        }
+
+        if (!EIP20Interface(token).asmTransferFrom(msg.sender, partnerAccounts[partnerId], partnerFeeAmount)) {
+            return fail("repay", Error.REPAY_TX_ERROR);
+        }
+
+        if (partnerOrderBook[partnerId][borrower][hash].token_pledge != address(0)) {
+        	  status = withdrawToken(partnerId, partnerOrderBook[partnerId][borrower][hash].token_pledge, partnerOrderBook[partnerId][borrower][hash].amount_pledge);
+        } else {
+            require(sendEth(partnerId, msg.sender, partnerOrderBook[partnerId][borrower][hash].token_pledge, partnerOrderBook[partnerId][borrower][hash].amount_pledge), "sendEth error");
+            status = 0;
+        }
+
+    } else {
+        //还款ETH
+        require(repayAmount == msg.value, "amount must be msg.value");
+        deposit(partnerId);
+        if (!sendEth(partnerId, partnerOrderBook[partnerId][borrower][hash].lender, token, partnerOrderBook[partnerId][borrower][hash].amount_get)) {
+            return fail("repay", Error.REPAY_SEND_ETH_ERROR);
+        }
+        if (!sendEth(partnerId, partnerAccounts[partnerId], token, partnerFeeAmount)) {
+            return fail("repay", Error.REPAY_SEND_ETH_ERROR);
+        }
+        if (!sendEth(partnerId, offcialFeeAccount, token, offcialFeeAmount)) {
+            return fail("repay", Error.REPAY_SEND_ETH_ERROR);
+        }
+        status = withdrawToken(partnerId, partnerOrderBook[partnerId][borrower][hash].token_pledge, partnerOrderBook[partnerId][borrower][hash].amount_pledge);
+    }
+    
+    if (status == 0) {
+        delete partnerOrderBook[partnerId][borrower][hash];
+        deleteHash(partnerId, borrower, hash);
+    	emit Repay(partnerId, borrower, hash, token, repayAmount, msg.sender);
+    } else {
+    	return fail("repay", Error.REPAY_ERROR);
+    }
+
+    return status;
+  }
