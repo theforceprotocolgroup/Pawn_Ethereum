@@ -181,7 +181,7 @@ function proposeNewOffcialFeeAccount(address offcialFeeAccount_) public onlyAdmi
 }
 
 function claimOffcialFeeAccount() public {
-    require(msg.sender == proposedOfficialFeeAccount, "Not proposed officialfee account.");
+    require(msg.sender == proposedOfficialFeeAccount, "Not proposed officialfee account");
     offcialFeeAccount = proposedOfficialFeeAccount;
     proposedOfficialFeeAccount = address(0);
 }
@@ -416,11 +416,11 @@ function lend(MapKey memory mapKey, bytes32 lenderPartnerId, address token, uint
 
   require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
   require(partnerOrderBook[partnerId][borrower][hash].borrower != msg.sender, "cannot lend to self");
-  require(partnerOrderBook[partnerId][borrower][hash].tokenInfoGet.token == token, "attempt to use an invalid type of token");
+  require(partnerOrderBook[partnerId][borrower][hash].tokenInfoGet.token == token, "invalid type of token");
   if (isC2C) {
     //Insufficient single lending amount, we will consider introducing multiple lenders in the future, and now only consider one lender（单个出借金额不足，后续可以考虑多个出借人，现在只考虑一个出借人）
     require(partnerOrderBook[partnerId][borrower][hash].tokenInfoGet.amount == amountArray[0].sub(amountArray[1]).sub(amountArray[2]),
-    "amount_get != amount-offcialFeeAmount-partnerFeeAmount");
+    "amountArray set error");
   } else {
     require(partnerOrderBook[partnerId][borrower][hash].tokenInfoGet.amount == amountArray[0], "amount_get != amount");
   }
@@ -428,24 +428,24 @@ function lend(MapKey memory mapKey, bytes32 lenderPartnerId, address token, uint
   require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != ORDER_STATUS_PENDING");
 
   if (token != address(0)) {
-    require(msg.value == 0, "msg.value must be zero for non eth lend");
+    require(msg.value == 0, "value must be zero for erc lend");
     require(safeTransferFrom(token, msg.sender, address(this), partnerOrderBook[partnerId][borrower][hash].borrower, partnerOrderBook[partnerId][borrower][hash].tokenInfoGet.amount) == 0,
-      "safeTransferFrom to borrower error");
+      "tx to borrower err");
     if (isC2C) {
-      require(safeTransferFrom(token, msg.sender, address(this), offcialFeeAccount, amountArray[1]) == 0, "safeTransferFrom to officicalFeeAccount errror");
-      require(safeTransferFrom(token, msg.sender, address(this), partnerAccounts[lenderPartnerId], amountArray[2]) == 0, "safeTransferFrom to partnerAccounts[lenderPartnerId] error");
+      require(safeTransferFrom(token, msg.sender, address(this), offcialFeeAccount, amountArray[1]) == 0, "tx to officicalFeeAccount err");
+      require(safeTransferFrom(token, msg.sender, address(this), partnerAccounts[lenderPartnerId], amountArray[2]) == 0, "tx to lender partner account err");
     }
   } else {
       require(amountArray[0] == msg.value, "lenderAmount must be msg.value");
       deposit(lenderPartnerId);
       require(sendEth(lenderPartnerId, partnerOrderBook[partnerId][borrower][hash].borrower.make_payable(), partnerOrderBook[partnerId][borrower][hash].tokenInfoGet.amount),
-        "lend: sendEth to borrower error!");
+        "lend: sendEth to borrower err");
       if (isC2C) {
-        require(sendEth(lenderPartnerId, offcialFeeAccount.make_payable(), amountArray[1]), "lend: sendEth to offcial fee error!");
-        require(sendEth(lenderPartnerId, partnerAccounts[lenderPartnerId].make_payable(), amountArray[2]), "lend: sendEth to partner error!");
+        require(sendEth(lenderPartnerId, offcialFeeAccount.make_payable(), amountArray[1]), "lend: sendEth to offcial fee err");
+        require(sendEth(lenderPartnerId, partnerAccounts[lenderPartnerId].make_payable(), amountArray[2]), "lend: sendEth to partner err");
       }
   }
-   
+
   partnerOrderBook[partnerId][borrower][hash].deadline = now.add((partnerOrderBook[partnerId][borrower][hash].rateInfo.pack_data >> 192).mul(1 minutes));
   if (isC2C) {
     partnerOrderBook[partnerId][borrower][hash].lender = msg.sender;
@@ -473,7 +473,7 @@ function cancelOrder(MapKey memory mapKey) public notNull(mapKey.k1) {
 
   require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
   require(partnerOrderBook[partnerId][borrower][hash].borrower == msg.sender || msg.sender == admin,
-    "only borrower or admin can do this operation");
+    "require borrower or admin");
   require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_PENDING, "state != ORDER_STATUS_PENDING");
   uint status = 1;
 
@@ -506,8 +506,8 @@ function callmargin(MapKey memory mapKey, address token, uint256 amount) public 
   require(partnerOrderBook[partnerId][borrower][hash].tokenInfoGive.token == token, "invalid pledge token");
 
   if (token != address(0)) {
-      require(msg.value == 0, "msg.value must be zero for non eth callmargin");
-      require(safeTransferFrom(token, msg.sender, address(this), address(this), amount) == 0, "callmargin safeTransferFrom error");
+      require(msg.value == 0, "value must be zero for erc margin");
+      require(safeTransferFrom(token, msg.sender, address(this), address(this), amount) == 0, "callmargin tx err");
   } else {
       require(amount == msg.value, "amount must equal msg.value");
   }
@@ -538,7 +538,7 @@ function repay(MapKey memory mapKey, uint256[3] memory amountArray, bool isC2C) 
     repayAmount = amountArray[0];
  }
   require(lenderAmount >= partnerOrderBook[partnerId][borrower][hash].tokenInfoGet.amount, "invalid lender amount");
-  require(msg.sender == partnerOrderBook[partnerId][borrower][hash].borrower, "invalid repayer, must be borrower");
+  require(msg.sender == partnerOrderBook[partnerId][borrower][hash].borrower, "msg.sender must be borrower");
   uint status = 1;
 
   if (token != address(0)) {
@@ -564,8 +564,8 @@ function repay(MapKey memory mapKey, uint256[3] memory amountArray, bool isC2C) 
       deposit(partnerId);
       require(sendEth(partnerId, partnerOrderBook[partnerId][borrower][hash].lender.make_payable(), partnerOrderBook[partnerId][borrower][hash].tokenInfoGet.amount), "repay: send eth to lender error");
       if (isC2C) {
-        require(sendEth(partnerId, offcialFeeAccount.make_payable(), amountArray[1]), "repay: send eth to offcial account error");
-        require(sendEth(partnerId, partnerAccounts[partnerId].make_payable(), amountArray[2]), "repay: send eth to partner account error");
+        require(sendEth(partnerId, offcialFeeAccount.make_payable(), amountArray[1]), "repay eth to offcial account err");
+        require(sendEth(partnerId, partnerAccounts[partnerId].make_payable(), amountArray[2]), "repay eth to partner account err");
       }
 
       status = withdrawToken(partnerId, partnerOrderBook[partnerId][borrower][hash].tokenInfoGive.token, partnerOrderBook[partnerId][borrower][hash].tokenInfoGive.amount);
@@ -628,13 +628,13 @@ function liquidation(MapKey memory mapKey, uint256[3] memory amountArray, bool i
       }
   } else {
       //eth pledge
-      require(sendEth(partnerId, partnerOrderBook[partnerId][borrower][hash].lender.make_payable(), amountArray[0]), "send eth to lender error");
+      require(sendEth(partnerId, partnerOrderBook[partnerId][borrower][hash].lender.make_payable(), amountArray[0]), "send eth to lender err");
       if (isC2C) {
-        require(sendEth(partnerId, offcialFeeAccount.make_payable(), amountArray[1]), "send eth to offcial account error");
-        require(sendEth(partnerId, partnerAccounts[partnerId].make_payable(), amountArray[2]), "send eth to partner account error");
+        require(sendEth(partnerId, offcialFeeAccount.make_payable(), amountArray[1]), "send eth to offcial account err");
+        require(sendEth(partnerId, partnerAccounts[partnerId].make_payable(), amountArray[2]), "send eth to partner account err");
       }
 
-      require(sendEth(partnerId, borrower.make_payable(), partnerTokens[partnerId][token][borrower]), "sendEth to borrower error");
+      require(sendEth(partnerId, borrower.make_payable(), partnerTokens[partnerId][token][borrower]), "sendEth to borrower err");
   }
 
   delete partnerOrderBook[partnerId][borrower][hash];
@@ -666,9 +666,9 @@ function forcerepay(MapKey memory mapKey, uint256[3] memory amountArray, bool is
 
 
   require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
-  require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
+  require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != ORDER_STATUS_ACCEPTED");
   require(msg.sender == admin, "forcerepay must be admin");
-  require(now > partnerOrderBook[partnerId][borrower][hash].deadline, "cannot forcerepay before deadline");
+  require(now > partnerOrderBook[partnerId][borrower][hash].deadline, "can't forcerepay before deadline");
 
   if (isC2C) {
     require(liquidation(mapKey, amountArray, isC2C) == 0, "forcerepay error");
@@ -713,14 +713,14 @@ function closepostion(MapKey memory mapKey, uint256[3] memory amountArray, bool 
   address token = partnerOrderBook[partnerId][borrower][hash].tokenInfoGive.token;
 
   require(partnerOrderBook[partnerId][borrower][hash].borrower != address(0), "order not found");
-  require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != OrderState.ORDER_STATUS_ACCEPTED");
-  require(msg.sender == admin || msg.sender == partnerOrderBook[partnerId][borrower][hash].lender, "closepostion must be admin or lender");
+  require(partnerOrderBook[partnerId][borrower][hash].state == OrderState.ORDER_STATUS_ACCEPTED, "state != ORDER_STATUS_ACCEPTED");
+  require(msg.sender == admin || msg.sender == partnerOrderBook[partnerId][borrower][hash].lender, "sender must be admin or lender");
 
   //Not overdue（未逾期）
   if (partnerOrderBook[partnerId][borrower][hash].deadline > now) {
-    require(msg.sender == admin, "closeposition: only admin of this contract can do this operation before deadline");
+    require(msg.sender == admin, "only admin can close before DDL");
   } else {
-    require(msg.sender == admin || msg.sender == partnerOrderBook[partnerId][borrower][hash].lender, "closepostion: only lender or admin of this contract can do this operation");
+    require(msg.sender == admin || msg.sender == partnerOrderBook[partnerId][borrower][hash].lender, "only lender or admin can close");
   }
 
   if (isC2C) {
