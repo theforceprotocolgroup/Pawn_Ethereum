@@ -15,6 +15,22 @@ library address_make_payable {
   }
 }
 
+contract IOracle {
+  function get(address token) public view returns (uint, bool);
+}
+
+contract IInterestRateModel {
+  function getLoanRate(int cash, int borrow) public returns (int y);
+  function getDepositRate(int cash, int borrow) public returns (int y);
+
+  function calculateBalance(int principal, int lastIndex, int newIndex) public returns (int y);
+  function calculateInterestIndex(int Index, int r, int t) public returns (int y);
+  function pert(int principal, int r, int t) public returns (int y);
+  function continuousCompoundingInterest(int r, int t) public returns (int y);
+  function getNewReserve(int oldReserve, int cash, int borrow, int blockDelta) public returns (int y);
+  function ert(int r, int t) public returns (int y);
+}
+
 contract TheForceLending {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
@@ -79,6 +95,99 @@ contract TheForceLending {
     }
 
     uint256 constant interestRateDenomitor = 1e18;
+
+    struct Rate {
+      int supplyRate;//存款利率
+      int demondRate;//借款利率
+    }
+
+    /**
+      * @notice Container for borrow balance information
+      * @member principal Total balance (with accrued interest), after applying the most recent balance-changing action
+      * @member interestIndex Global borrowIndex as of the most recent balance-changing action
+      */
+    //存款/贷款本金和利息
+    struct Balance {
+        uint principal;
+        uint interestIndex;
+    }
+
+    struct Market {
+      uint accrualBlockNumber;
+      Rate rate;
+
+      IInterestRateModel irm;
+
+      uint totalSupply;
+      uint supplyIndex;
+
+      uint totalBorrows;
+      uint borrowIndex;
+
+      uint totalReserves;//系统盈利
+
+      uint minPledgeRate;//最小质押率
+      uint liquidationDiscount;//清算折扣
+    }
+
+    mapping (address => mapping (address => Balance)) public accountSupplySnapshot;//tokenContract->address(usr)->SupplySnapshot
+    mapping (address => mapping (address => Balance)) public accountBorrowSnapshot;//tokenContract->address(usr)->BorrowSnapshot
+
+    mapping (address => Market) mkts;//tokenAddress->Market
+    address[] public collateralTokens;//抵押币种
+    address[] public loanTokens;//借贷币种
+    IOracle public oracleInstance;
+
+    uint constant initialInterestIndex = 10 ** 18;
+    uint constant defaultOriginationFee = 0; // default is zero bps
+    uint constant originationFee = 0;
+    uint constant ONE_ETH = 1 ether;
+
+    //增加抵押币种，WBTC，ETH，TBTC
+    function addCollateralMarket(address asset) public onlyAdmin {
+      for (uint i = 0; i < collateralTokens.length; i++) {
+        if (collateralTokens[i] == asset) {
+          return;
+        }
+      }
+      collateralTokens.push(asset);
+    }
+
+    function getCollateralMarketsLength() public view returns (uint) {
+      return collateralTokens.length;
+    }
+
+    function setInterestRateModel(address t, address irm) public onlyAdmin {
+      mkts[t].irm = IInterestRateModel(irm);
+    }
+
+    function setMinPledgeRate(address t, uint minPledgeRate) public onlyAdmin {
+      mkts[t].minPledgeRate = minPledgeRate;
+    }
+
+    function setLiquidationDiscount(address t, uint liquidationDiscount) public onlyAdmin {
+      mkts[t].liquidationDiscount = liquidationDiscount;
+    }
+
+    function initCollateralMarket(address t, address irm, address oracle) public onlyAdmin {
+      if (address(oracleInstance) == address(0)) {
+        setOracle(oracle);
+      }
+
+      if (address(mkts[t].irm) == address(0)) {
+        setInterestRateModel(t, irm);
+      }
+
+      addCollateralMarket(t);
+      if (mkts[t].supplyIndex == 0) {
+        mkts[t].supplyIndex = initialInterestIndex;
+      }
+
+      if (mkts[t].borrowIndex == 0) {
+        mkts[t].borrowIndex = initialInterestIndex;
+      }
+    }
+
 
     function numHash(bytes32 partnerId, address usr) external view returns (uint256) {
         return partnerOrderHash[partnerId][usr].length;
@@ -186,12 +295,6 @@ function claimOffcialFeeAccount() public {
     proposedOfficialFeeAccount = address(0);
 }
 
-// Info: this function will not used in later, we will use dynamic calculation for borrow and lender rate.
-// we will use our interest model instead of a sigmoid function.
-function setSaveRate(uint256 rate) public onlyAdmin {
-  saveRate = rate;
-}
-
 function setOffcialPartnerId(bytes32 id) public onlyAdmin {
   offcialPartnerId = id;
 }
@@ -218,6 +321,127 @@ function getPartner(bytes32 partnerId) public view returns (address) {
   return partnerAccounts[partnerId];
 }
 
+    //设置USDT，DAI和抵押品的起始时间戳
+    function setInitialTimestamp(address token) public onlyAdmin {
+      mkts[token].accrualBlockNumber = now;
+    }
+
+    function setOracle(address oracle) public onlyAdmin {
+      oracleInstance = IOracle(oracle);
+    }
+
+    modifier existOracle() {
+      require(address(oracleInstance) != address(0), "oracle not set");
+      _;
+    }
+
+    function fetchAssetPrice(address asset) internal view returns (uint, bool) {
+      require(address(oracleInstance) != address(0), "oracle not set");
+      return oracleInstance.get(asset);
+    }
+
+    function getPriceForAssetAmount(address asset, uint assetAmount) internal view returns (uint) {
+      require(address(oracleInstance) != address(0), "oracle not set");
+      (uint price, bool ok) = fetchAssetPrice(asset);
+      if (ok) {
+        return price.mul(assetAmount);
+      }
+      return 0;
+    }
+
+    function getAssetAmountForValue(address t, uint usdValue) internal view returns (uint) {
+      require(address(oracleInstance) != address(0), "oracle not set");
+      (uint price, bool ok) = fetchAssetPrice(t);
+      if (ok) {
+        return usdValue.div(price);
+      }
+      return uint(-1);
+    }
+
+    //合约里的现金
+    function getCash(address t) public view returns (uint) {
+      IERC20 token = IERC20(t);
+      return token.balanceOf(address(this));
+    }
+
+    function getBalanceOf(address asset, address from) internal view returns (uint) {
+      IERC20 token = IERC20(asset);
+
+      return token.balanceOf(from);
+    }
+
+    //m:market, a:account
+    //i(n,m)=i(n-1,m)*(1+rm*t)
+    //return P*(i(n,m)/i(n-1,a))
+    function getSupplyBalance(address acc, address t) public returns (uint) {
+      Balance storage supplyBalance = accountSupplySnapshot[t][acc];
+
+      int mSupplyIndex = mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(now - mkts[t].accrualBlockNumber));
+
+      uint userSupplyCurrent = uint(mkts[t].irm.calculateBalance(int(supplyBalance.principal), int(supplyBalance.interestIndex), mSupplyIndex));
+      return userSupplyCurrent;
+    }
+
+    function getSupplyBalanceInUSD(address who, address t) public returns (uint) {
+      return getPriceForAssetAmount(t, getSupplyBalance(who, t));
+    }
+
+    //m:market, a:account
+    //i(n,m)=i(n-1,m)*(1+rm*t)
+    //return P*(i(n,m)/i(n-1,a))
+    function getBorrowBalance(address acc, address t) public returns (uint) {
+      Balance storage borrowBalance = accountBorrowSnapshot[t][acc];
+
+      int mBorrowIndex = mkts[t].irm.pert(int(mkts[t].borrowIndex), int(mkts[t].rate.demondRate), int(now - mkts[t].accrualBlockNumber));
+
+      uint userBorrowCurrent = uint(mkts[t].irm.calculateBalance(int(borrowBalance.principal), int(borrowBalance.interestIndex), mBorrowIndex));
+      return userBorrowCurrent;
+    }
+
+    function getBorrowBalanceInUSD(address who, address t) public returns (uint) {
+      return getPriceForAssetAmount(t, getBorrowBalance(who, t));
+    }
+
+    // BorrowBalance * collateral ratio
+    function getBorrowBalanceLeverage(address who, address t) public returns (uint) {
+      return getBorrowBalanceInUSD(who,t).mul(mkts[t].minPledgeRate);
+    }
+
+    //Gets USD token values of supply and borrow balances
+    function calcAccountTokenValuesInternal(address who, address t) internal returns (uint, uint) {
+      return (getSupplyBalanceInUSD(who, t), getBorrowBalanceInUSD(who, t));
+    }
+
+    //Gets USD token values of supply and borrow balances
+    function calcAccountTokenValuesLeverageInternal(address who, address t) internal returns (uint, uint) {
+      return (getSupplyBalanceInUSD(who, t), getBorrowBalanceLeverage(who, t));
+    }
+
+    //Gets USD all token values of supply and borrow balances
+    function calcAccountAllTokenValuesLeverageInternal(address who) internal returns (uint, uint) {
+      uint length = collateralTokens.length;
+      uint sumSupplies;
+      uint sumBorrowLeverage;
+
+      for (uint i = 0; i < length; i++) {
+        (uint supplyValue, uint borrowsLeverage) = calcAccountTokenValuesLeverageInternal(who, collateralTokens[i]);
+        sumSupplies += supplyValue;
+        sumBorrowLeverage += borrowsLeverage;
+      }
+      return (sumSupplies, sumBorrowLeverage);
+    }
+
+    function calcAccountLiquidity(address who) internal returns (uint, uint) {
+      uint sumSupplies;
+      uint sumBorrowsLeverage;//sumBorrows* collateral ratio
+      (sumSupplies, sumBorrowsLeverage) = calcAccountAllTokenValuesLeverageInternal(who);
+      if (sumSupplies < sumBorrowsLeverage) {
+        return (0, sumBorrowsLeverage.sub(sumSupplies));//不足
+      } else {
+        return (sumSupplies.sub(sumBorrowsLeverage), 0);//有余
+      }
+    }
+
 //Deposit ETH(充值ETH)
 function deposit(bytes32 partnerId) public payable  {
   partnerTokens[partnerId][address(0)][msg.sender] = partnerTokens[partnerId][address(0)][msg.sender].add(msg.value);
@@ -233,43 +457,11 @@ function sendEth(bytes32 partnerId, address payable dst, uint256 amount) interna
   return true;
 }
 
-//Calculate interest of each block（计算单利）, interestPerBlock, 5%->5e16
-function calcSimpleInterest(uint256 interestPerBlock, uint256 numBlocks) public pure returns (uint256 interest) {
-  return interestPerBlock.mul(numBlocks);
-}
-
-/*
-Deposit token, smart contract owner calls firstly, fills the pool of funds,
-Deposit USDT and DAI, calculates interest by block.
-充值token，合约所有者首先调用，填充资金池，充入USDT和DAI,按块计算利息*/
-function depositSavings(bytes32 partnerId, address token, uint256 amount) public notNull(partnerId) returns (uint256) {
-  /*
-  Remember to call Token(address).approve(this, amount) or contract will not be able to do the transfer on your behalf.
-  */
-
-  require(safeTransferFrom(token, msg.sender, address(this), address(this), amount) == 0, "safeTransferFrom error");
-  partnerTokens[partnerId][token][msg.sender] = partnerTokens[partnerId][token][msg.sender].add(amount);
-
-  partnerLastUpdateBlock[partnerId][token][msg.sender] = block.number;
-
-  emit DepositSavings(partnerId, token, amount);
-
-  return 0;
-}
-
 function _withdrawAsset(bytes32 partnerId, address token, address to, uint256 amount, bool transferInterest) internal notNull(partnerId) returns (uint256) {
   require(token != address(0) && to != address(0) && amount != 0, "invalid token address or amount");
 
   partnerTokens[partnerId][token][to] = partnerTokens[partnerId][token][to].sub(amount);
   IERC20(token).safeTransfer(to, amount);
-
-  //FIXME: Add interest check to prevent users from withdrawing excess interest（添加利息检查，防止用户提取多余利息）
-  if (transferInterest) {
-    uint256 delta = block.number.sub(partnerLastUpdateBlock[partnerId][token][to]);
-    uint256 interestAmount = amount.mul(calcSimpleInterest(saveRate, delta)).div(interestRateDenomitor);
-    //Send interest to the user（发送利息给用户）
-    IERC20(token).safeTransfer(to, interestAmount);
-  }
 
   return 0;
 }
@@ -281,6 +473,428 @@ function withdrawSavings(bytes32 partnerId, address token, uint256 amount) publi
 
   return 0;
 }
+
+  struct SupplyIR {
+      uint startingBalance;
+      uint newSupplyIndex;
+      uint userSupplyCurrent;
+      uint userSupplyUpdated;
+      uint newTotalSupply;
+      uint currentCash;
+      uint updatedCash;
+      uint newBorrowIndex;
+  }
+
+  function supplyPawn(address t, uint amount) public returns (uint) {
+    SupplyIR memory tmp;
+    Market storage market = mkts[t];
+    Balance storage supplyBalance = accountSupplySnapshot[t][msg.sender];
+
+    uint lastTimestamp = mkts[t].accrualBlockNumber;
+    uint blockDelta = now - lastTimestamp;
+
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
+    tmp.userSupplyCurrent = uint(mkts[t].irm.calculateBalance(int(accountSupplySnapshot[t][msg.sender].principal), int(supplyBalance.interestIndex), int(tmp.newSupplyIndex)));
+    tmp.userSupplyUpdated = tmp.userSupplyCurrent.add(amount);
+    tmp.newTotalSupply = market.totalSupply.add(tmp.userSupplyUpdated).sub(supplyBalance.principal);
+
+    tmp.currentCash = getCash(t);
+    tmp.updatedCash = tmp.currentCash.add(amount);
+
+    mkts[t].rate.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(mkts[t].totalBorrows));
+    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), int(mkts[t].rate.demondRate), int(blockDelta)));
+    mkts[t].rate.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(mkts[t].totalBorrows));
+
+    require(safeTransferFrom(t, msg.sender, address(this), address(this), amount) == 0, "supply error");
+
+    mkts[t].borrowIndex = tmp.newBorrowIndex;
+    mkts[t].supplyIndex = tmp.newSupplyIndex;
+    mkts[t].totalSupply = tmp.newTotalSupply;
+    mkts[t].accrualBlockNumber = now;
+
+    supplyBalance.principal = tmp.userSupplyUpdated;
+    supplyBalance.interestIndex = tmp.newSupplyIndex;
+  }
+
+  struct WithdrawIR {
+    uint withdrawAmount;
+    uint startingBalance;
+    uint newSupplyIndex;
+    uint userSupplyCurrent;
+    uint userSupplyUpdated;
+    uint newTotalSupply;
+    uint currentCash;
+    uint updatedCash;
+    uint newBorrowIndex;
+
+    uint accountLiquidity;
+    uint accountShortfall;
+    uint usdValueOfWithdrawal;
+    uint withdrawCapacity;
+  }
+
+  function withdrawPawn(address t, uint requestedAmount) public returns (uint) {
+    Market storage market = mkts[t];
+    Balance storage supplyBalance = accountSupplySnapshot[t][msg.sender];
+
+    WithdrawIR memory tmp;
+
+    uint lastTimestamp = mkts[t].accrualBlockNumber;
+    uint blockDelta = now - lastTimestamp;
+
+    (tmp.accountLiquidity, tmp.accountShortfall) = calcAccountLiquidity(msg.sender);
+    require(tmp.accountShortfall == 0, "can't withdraw, shortfall");
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
+    tmp.userSupplyCurrent = uint(mkts[t].irm.calculateBalance(int(supplyBalance.principal), int(supplyBalance.interestIndex), int(tmp.newSupplyIndex)));
+
+    if (requestedAmount == uint(-1)) {
+      tmp.withdrawCapacity = getAssetAmountForValue(t, tmp.accountLiquidity);
+      tmp.withdrawAmount = min(tmp.withdrawCapacity, tmp.userSupplyCurrent);
+    } else {
+      tmp.withdrawAmount = requestedAmount;
+    }
+
+    tmp.currentCash = getCash(t);
+    tmp.updatedCash = tmp.currentCash.sub(tmp.withdrawAmount);
+    tmp.userSupplyUpdated = tmp.userSupplyCurrent.sub(tmp.withdrawAmount);
+
+    tmp.usdValueOfWithdrawal = getPriceForAssetAmount(t, tmp.withdrawAmount);
+    require(tmp.usdValueOfWithdrawal <= tmp.accountLiquidity);
+
+    tmp.newTotalSupply = market.totalSupply.add(tmp.userSupplyUpdated).sub(supplyBalance.principal);
+
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
+
+    market.rate.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(market.totalBorrows));
+    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].rate.demondRate, int(blockDelta)));
+    market.rate.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(market.totalBorrows));
+
+    safeTransferFrom(t, address(this), address(this), msg.sender, tmp.withdrawAmount);
+
+    market.accrualBlockNumber = now;
+    market.totalSupply = tmp.newTotalSupply;
+    market.supplyIndex = tmp.newSupplyIndex;
+    market.borrowIndex = tmp.newBorrowIndex;
+
+    supplyBalance.principal = tmp.userSupplyUpdated;
+    supplyBalance.interestIndex = tmp.newSupplyIndex;
+  }
+
+  struct PayBorrowIR {
+    uint newBorrowIndex;
+    uint userBorrowCurrent;
+    uint repayAmount;
+
+    uint userBorrowUpdated;
+    uint newTotalBorrows;
+    uint currentCash;
+    uint updatedCash;
+
+    uint newSupplyIndex;
+
+    uint startingBalance;
+  }
+
+  function min(uint a, uint b) pure internal returns (uint) {
+    if (a < b) {
+        return a;
+    } else {
+        return b;
+    }
+  }
+
+  //`(1 + originationFee) * borrowAmount`
+  function calcBorrowAmountWithFee(uint borrowAmount) internal view returns (uint) {
+    return borrowAmount.mul((ONE_ETH).add(originationFee));
+  }
+
+  function getPriceForAssetAmountMulCollatRatio(address t, uint assetAmount) internal view returns (uint) {
+    return getPriceForAssetAmount(t, assetAmount).mul(mkts[t].minPledgeRate);
+  }
+
+  struct BorrowIR {
+    uint newBorrowIndex;
+    uint userBorrowCurrent;
+    uint borrowAmountWithFee;
+
+    uint userBorrowUpdated;
+    uint newTotalBorrows;
+    uint currentCash;
+    uint updatedCash;
+
+    uint newSupplyIndex;
+
+    uint startingBalance;
+
+    uint accountLiquidity;
+    uint accountShortfall;
+    uint usdValueOfBorrowAmountWithFee;
+  }
+
+  function BorrowPawn(address t, uint amount) public returns (uint) {
+    BorrowIR memory tmp;
+    Market storage market = mkts[t];
+    Balance storage borrowBalance = accountBorrowSnapshot[t][msg.sender];
+
+    uint lastTimestamp = mkts[t].accrualBlockNumber;
+    uint blockDelta = now - lastTimestamp;
+
+    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].rate.demondRate, int(blockDelta)));
+    int lastIndex = int(borrowBalance.interestIndex);
+    tmp.userBorrowCurrent = uint(mkts[t].irm.calculateBalance(int(borrowBalance.principal), lastIndex, int(tmp.newBorrowIndex)));
+    tmp.borrowAmountWithFee = calcBorrowAmountWithFee(amount);
+
+    tmp.userBorrowUpdated = tmp.userBorrowCurrent.add(tmp.borrowAmountWithFee);
+    tmp.newTotalBorrows = market.totalBorrows.add(tmp.userBorrowUpdated).sub(borrowBalance.principal);
+
+    (tmp.accountLiquidity, tmp.accountShortfall) = calcAccountLiquidity(msg.sender);
+    require(tmp.accountShortfall == 0, "can't borrow, shortfall");
+
+    tmp.usdValueOfBorrowAmountWithFee = getPriceForAssetAmountMulCollatRatio(t, tmp.borrowAmountWithFee);
+    require(tmp.usdValueOfBorrowAmountWithFee <= tmp.accountLiquidity, "can't borrow, without enough value");
+
+    tmp.currentCash = getCash(t);
+    tmp.updatedCash = tmp.currentCash.sub(amount);
+
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
+    market.rate.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
+    market.rate.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
+
+    safeTransferFrom(t, address(this), address(this), msg.sender, amount);
+
+    market.accrualBlockNumber = now;
+    market.totalBorrows = tmp.newTotalBorrows;
+    market.supplyIndex = tmp.newSupplyIndex;
+    market.borrowIndex = tmp.newBorrowIndex;
+
+    borrowBalance.principal = tmp.userBorrowUpdated;
+    borrowBalance.interestIndex = tmp.newBorrowIndex;
+  }
+
+  //t: token
+  function repayFastBorrow(address t, uint amount) public returns (uint) {
+    PayBorrowIR memory tmp;
+    Market storage market = mkts[t];
+    Balance storage borrowBalance = accountBorrowSnapshot[t][msg.sender];
+
+    uint lastTimestamp = mkts[t].accrualBlockNumber;
+    uint blockDelta = now - lastTimestamp;
+
+    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].rate.demondRate, int(blockDelta)));
+
+    int lastIndex = int(borrowBalance.interestIndex);
+    tmp.userBorrowCurrent = uint(mkts[t].irm.calculateBalance(int(borrowBalance.principal), lastIndex, int(tmp.newBorrowIndex)));
+
+    if (amount == uint(-1)) {
+        tmp.repayAmount = min(getBalanceOf(t, msg.sender), tmp.userBorrowCurrent);
+    } else {
+        tmp.repayAmount = amount;
+    }
+
+    tmp.userBorrowUpdated = tmp.userBorrowCurrent.sub(tmp.repayAmount);
+    tmp.newTotalBorrows = market.totalBorrows.add(tmp.userBorrowUpdated).sub(borrowBalance.principal);
+    tmp.currentCash = getCash(t);
+    tmp.updatedCash = tmp.currentCash.add(tmp.repayAmount);
+
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
+    market.rate.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
+    market.rate.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
+
+    safeTransferFrom(t, msg.sender, address(this), address(this), tmp.repayAmount);
+
+    market.accrualBlockNumber = now;
+    market.totalBorrows = tmp.newTotalBorrows;
+    market.supplyIndex = tmp.newSupplyIndex;
+    market.borrowIndex = tmp.newBorrowIndex;
+
+    borrowBalance.principal = tmp.userBorrowUpdated;
+    borrowBalance.interestIndex = tmp.newBorrowIndex;
+  }
+
+  //shortfall/(price*(minPledgeRate-liquidationDiscount-1))
+  //liquidationDiscount是清算折扣, in QIAN, 无清算折扣，但有罚金，罚金是8%，无清算折扣
+  //underwaterAsset is borrowAsset
+  function calcDiscountedRepayToEvenAmount(address targetAccount, address underwaterAsset, uint underwaterAssetPrice) internal returns (uint) {
+    (, uint shortfall) = calcAccountLiquidity(targetAccount);
+    uint minPledgeRate = mkts[underwaterAsset].minPledgeRate;
+    uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
+    uint gap = minPledgeRate.sub(liquidationDiscount).sub(1 ether);
+    return shortfall.div(underwaterAssetPrice.mul(gap));
+  }
+
+  //[supplyCurrent / (1 + liquidationDiscount)] * (Oracle price for the collateral / Oracle price for the borrow)
+  //[supplyCurrent * (Oracle price for the collateral)] / [ (1 + liquidationDiscount) * (Oracle price for the borrow) ]
+  function calcDiscountedBorrowDenominatedCollateral(address underwaterAsset, uint underwaterAssetPrice, uint collateralPrice, uint supplyCurrent_TargetCollateralAsset) view internal returns (uint) {
+    uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
+    uint onePlusLiquidationDiscount = (ONE_ETH).add(liquidationDiscount);
+    uint supplyCurrentTimesOracleCollateral = supplyCurrent_TargetCollateralAsset.mul(collateralPrice);
+    return supplyCurrentTimesOracleCollateral.div(onePlusLiquidationDiscount.mul(underwaterAssetPrice));
+  }
+
+  //closeBorrowAmount_TargetUnderwaterAsset * (1+liquidationDiscount) * priceBorrow/priceCollateral
+  //underwaterAssetPrice * (1+liquidationDiscount) *closeBorrowAmount_TargetUnderwaterAsset) / collateralPrice
+  //underwater is borrow
+  function calcAmountSeize(address underwaterAsset, uint underwaterAssetPrice, uint collateralPrice, uint closeBorrowAmount_TargetUnderwaterAsset) internal view returns (uint) {
+    uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
+    uint onePlusLiquidationDiscount = (ONE_ETH).add(liquidationDiscount);
+    return underwaterAssetPrice.mul(onePlusLiquidationDiscount).mul(closeBorrowAmount_TargetUnderwaterAsset).div(collateralPrice);
+  }
+
+  struct LiquidateIR {
+    // we need these addresses in the struct for use with `emitLiquidationEvent` to avoid `CompilerError: Stack too deep, try removing local variables.`
+    address targetAccount;
+    address assetBorrow;
+    address liquidator;
+    address assetCollateral;
+
+    // borrow index and supply index are global to the asset, not specific to the user
+    uint newBorrowIndex_UnderwaterAsset;
+    uint newSupplyIndex_UnderwaterAsset;
+    uint newBorrowIndex_CollateralAsset;
+    uint newSupplyIndex_CollateralAsset;
+
+    // the target borrow's full balance with accumulated interest
+    uint currentBorrowBalance_TargetUnderwaterAsset;
+    // currentBorrowBalance_TargetUnderwaterAsset minus whatever gets repaid as part of the liquidation
+    uint updatedBorrowBalance_TargetUnderwaterAsset;
+
+    uint newTotalBorrows_ProtocolUnderwaterAsset;
+
+    uint startingBorrowBalance_TargetUnderwaterAsset;
+    uint startingSupplyBalance_TargetCollateralAsset;
+    uint startingSupplyBalance_LiquidatorCollateralAsset;
+
+    uint currentSupplyBalance_TargetCollateralAsset;
+    uint updatedSupplyBalance_TargetCollateralAsset;
+
+    // If liquidator already has a balance of collateralAsset, we will accumulate
+    // interest on it before transferring seized collateral from the borrower.
+    uint currentSupplyBalance_LiquidatorCollateralAsset;
+    // This will be the liquidator's accumulated balance of collateral asset before the liquidation (if any)
+    // plus the amount seized from the borrower.
+    uint updatedSupplyBalance_LiquidatorCollateralAsset;
+
+    uint newTotalSupply_ProtocolCollateralAsset;
+    uint currentCash_ProtocolUnderwaterAsset;
+    uint updatedCash_ProtocolUnderwaterAsset;
+
+    // cash does not change for collateral asset
+
+    //mkts[t].rate
+    uint newSupplyRateMantissa_ProtocolUnderwaterAsset;
+    uint newBorrowRateMantissa_ProtocolUnderwaterAsset;
+
+    // Why no variables for the interest rates for the collateral asset?
+    // We don't need to calculate new rates for the collateral asset since neither cash nor borrows change
+
+    uint discountedRepayToEvenAmount;
+
+    //[supplyCurrent / (1 + liquidationDiscount)] * (Oracle price for the collateral / Oracle price for the borrow) (discountedBorrowDenominatedCollateral)
+    uint discountedBorrowDenominatedCollateral;
+
+    uint maxCloseableBorrowAmount_TargetUnderwaterAsset;
+    uint closeBorrowAmount_TargetUnderwaterAsset;
+    uint seizeSupplyAmount_TargetCollateralAsset;
+
+    uint collateralPrice;
+    uint underwaterAssetPrice;
+  }
+
+
+  function liquidateBorrowPawn(address targetAccount, address assetBorrow, address assetCollateral, uint requestedAmountClose) public returns (uint) {
+        LiquidateIR memory tmp;
+        // Copy these addresses into the struct for use with `emitLiquidationEvent`
+        // We'll use tmp.liquidator inside this function for clarity vs using msg.sender.
+        tmp.targetAccount = targetAccount;
+        tmp.assetBorrow = assetBorrow;
+        tmp.liquidator = msg.sender;
+        tmp.assetCollateral = assetCollateral;
+
+        uint lastTimestamp = mkts[assetBorrow].accrualBlockNumber;
+        uint blockDelta = now - lastTimestamp;
+
+        Market storage borrowMarket = mkts[assetBorrow];
+        Market storage collateralMarket = mkts[assetCollateral];
+        Balance storage borrowBalance_TargeUnderwaterAsset = accountBorrowSnapshot[assetBorrow][targetAccount];
+        Balance storage supplyBalance_TargetCollateralAsset = accountSupplySnapshot[assetCollateral][targetAccount];
+
+        // Liquidator might already hold some of the collateral asset
+        Balance storage supplyBalance_LiquidatorCollateralAsset = accountSupplySnapshot[assetCollateral][tmp.liquidator];
+
+        bool ok;
+        (tmp.collateralPrice, ok) = fetchAssetPrice(assetCollateral);
+        require(ok, "fail to get collateralPrice");
+
+        (tmp.underwaterAssetPrice, ok) = fetchAssetPrice(assetBorrow);
+        require(ok, "fail to get underwaterAssetPrice");
+
+        tmp.newBorrowIndex_UnderwaterAsset = uint(borrowMarket.irm.pert(int(borrowMarket.borrowIndex), borrowMarket.rate.demondRate, int(blockDelta)));
+        tmp.currentBorrowBalance_TargetUnderwaterAsset = uint(borrowMarket.irm.calculateBalance(int(borrowBalance_TargeUnderwaterAsset.principal), int(borrowBalance_TargeUnderwaterAsset.interestIndex), int(tmp.newBorrowIndex_UnderwaterAsset)));
+
+        tmp.newSupplyIndex_CollateralAsset = uint(collateralMarket.irm.pert(int(collateralMarket.supplyIndex), collateralMarket.rate.supplyRate, int(blockDelta)));
+        tmp.currentSupplyBalance_TargetCollateralAsset = uint(collateralMarket.irm.calculateBalance(int(supplyBalance_TargetCollateralAsset.principal), int(supplyBalance_TargetCollateralAsset.interestIndex), int(tmp.newSupplyIndex_CollateralAsset)));
+
+        tmp.currentSupplyBalance_LiquidatorCollateralAsset = uint(collateralMarket.irm.calculateBalance(int(supplyBalance_LiquidatorCollateralAsset.principal), int(supplyBalance_LiquidatorCollateralAsset.interestIndex), int(tmp.newSupplyIndex_CollateralAsset)));
+
+        tmp.newTotalSupply_ProtocolCollateralAsset = collateralMarket.totalSupply.add(tmp.currentSupplyBalance_TargetCollateralAsset).sub(supplyBalance_TargetCollateralAsset.principal);
+        tmp.newTotalSupply_ProtocolCollateralAsset = tmp.newTotalSupply_ProtocolCollateralAsset.add(tmp.currentSupplyBalance_LiquidatorCollateralAsset).sub(supplyBalance_LiquidatorCollateralAsset.principal);
+
+        tmp.discountedBorrowDenominatedCollateral = calcDiscountedBorrowDenominatedCollateral(assetBorrow, tmp.underwaterAssetPrice, tmp.collateralPrice, tmp.currentSupplyBalance_TargetCollateralAsset);
+        tmp.discountedRepayToEvenAmount = calcDiscountedRepayToEvenAmount(targetAccount, assetBorrow, tmp.underwaterAssetPrice);
+        tmp.maxCloseableBorrowAmount_TargetUnderwaterAsset = min(tmp.currentBorrowBalance_TargetUnderwaterAsset, tmp.discountedBorrowDenominatedCollateral);
+        tmp.maxCloseableBorrowAmount_TargetUnderwaterAsset = min(tmp.maxCloseableBorrowAmount_TargetUnderwaterAsset, tmp.discountedRepayToEvenAmount);
+
+        if (requestedAmountClose == uint(-1)) {
+            tmp.closeBorrowAmount_TargetUnderwaterAsset = tmp.maxCloseableBorrowAmount_TargetUnderwaterAsset;
+        } else {
+            tmp.closeBorrowAmount_TargetUnderwaterAsset = requestedAmountClose;
+        }
+        require(tmp.closeBorrowAmount_TargetUnderwaterAsset <= tmp.maxCloseableBorrowAmount_TargetUnderwaterAsset, "closeBorrowAmount > maxCloseableBorrowAmount err");
+
+        tmp.seizeSupplyAmount_TargetCollateralAsset = calcAmountSeize(assetBorrow, tmp.underwaterAssetPrice, tmp.collateralPrice, tmp.closeBorrowAmount_TargetUnderwaterAsset);
+
+        require(getBalanceOf(assetBorrow, tmp.liquidator) <= tmp.closeBorrowAmount_TargetUnderwaterAsset, "insufficient balance");
+        tmp.updatedBorrowBalance_TargetUnderwaterAsset = tmp.currentBorrowBalance_TargetUnderwaterAsset.sub(tmp.closeBorrowAmount_TargetUnderwaterAsset);
+        tmp.newTotalBorrows_ProtocolUnderwaterAsset = borrowMarket.totalBorrows.add(tmp.updatedBorrowBalance_TargetUnderwaterAsset).sub(borrowBalance_TargeUnderwaterAsset.principal);
+
+        tmp.currentCash_ProtocolUnderwaterAsset = getCash(assetBorrow);
+        tmp.updatedCash_ProtocolUnderwaterAsset = tmp.currentCash_ProtocolUnderwaterAsset.add(tmp.closeBorrowAmount_TargetUnderwaterAsset);
+
+        tmp.newSupplyIndex_UnderwaterAsset = uint(borrowMarket.irm.pert(int(borrowMarket.supplyIndex), borrowMarket.rate.demondRate, int(blockDelta)));
+        borrowMarket.rate.supplyRate = borrowMarket.irm.getDepositRate(int(tmp.updatedCash_ProtocolUnderwaterAsset), int(tmp.newTotalBorrows_ProtocolUnderwaterAsset));
+        borrowMarket.rate.demondRate = borrowMarket.irm.getLoanRate(int(tmp.updatedCash_ProtocolUnderwaterAsset), int(tmp.newTotalBorrows_ProtocolUnderwaterAsset));
+        tmp.newBorrowIndex_CollateralAsset = uint(collateralMarket.irm.pert(int(collateralMarket.supplyIndex), collateralMarket.rate.demondRate, int(blockDelta)));
+
+        tmp.updatedSupplyBalance_TargetCollateralAsset = tmp.currentSupplyBalance_TargetCollateralAsset.sub(tmp.seizeSupplyAmount_TargetCollateralAsset);
+        tmp.updatedSupplyBalance_LiquidatorCollateralAsset = tmp.currentSupplyBalance_LiquidatorCollateralAsset.add(tmp.seizeSupplyAmount_TargetCollateralAsset);
+
+        safeTransferFrom(assetBorrow, tmp.liquidator, address(this), address(this), tmp.closeBorrowAmount_TargetUnderwaterAsset);
+
+        borrowMarket.accrualBlockNumber = now;
+        borrowMarket.totalBorrows = tmp.newTotalBorrows_ProtocolUnderwaterAsset;
+        borrowMarket.supplyIndex = tmp.newSupplyIndex_UnderwaterAsset;
+        borrowMarket.borrowIndex = tmp.newBorrowIndex_UnderwaterAsset;
+
+        collateralMarket.accrualBlockNumber = now;
+        collateralMarket.totalSupply = tmp.newTotalSupply_ProtocolCollateralAsset;
+        collateralMarket.supplyIndex = tmp.newSupplyIndex_CollateralAsset;
+        collateralMarket.borrowIndex = tmp.newBorrowIndex_CollateralAsset;
+
+        tmp.startingBorrowBalance_TargetUnderwaterAsset = borrowBalance_TargeUnderwaterAsset.principal; // save for use in event
+        borrowBalance_TargeUnderwaterAsset.principal = tmp.updatedBorrowBalance_TargetUnderwaterAsset;
+        borrowBalance_TargeUnderwaterAsset.interestIndex = tmp.newBorrowIndex_UnderwaterAsset;
+
+        tmp.startingSupplyBalance_TargetCollateralAsset = supplyBalance_TargetCollateralAsset.principal; // save for use in event
+        supplyBalance_TargetCollateralAsset.principal = tmp.updatedSupplyBalance_TargetCollateralAsset;
+        supplyBalance_TargetCollateralAsset.interestIndex = tmp.newSupplyIndex_CollateralAsset;
+
+        tmp.startingSupplyBalance_LiquidatorCollateralAsset = supplyBalance_LiquidatorCollateralAsset.principal; // save for use in event
+        supplyBalance_LiquidatorCollateralAsset.principal = tmp.updatedSupplyBalance_LiquidatorCollateralAsset;
+        supplyBalance_LiquidatorCollateralAsset.interestIndex = tmp.newSupplyIndex_CollateralAsset;
+
+        return 0;
+  }
+
 
 function safeTransferFrom(address token, address owner, address spender, address to, uint256 amount) internal returns (uint256) {
   require(amount > 0, "invalid safeTransferFrom amount");
@@ -360,22 +974,6 @@ function borrow(bytes32 partnerId,//Partner platform mark（平台标记）
   }
   require(status == 0, "borrow: deposit token error!");
 
-  //集中借贷
-  if (!isC2C) {
-    /*
-      合约可以出借,出借人是合约，必须加this，表示msg.sender是合约地址
-      The contract can be used as a lender. If the lender is a contract, "this" must be added to indicate that msg.sender is the contract address.
-    */
-    uint256[3] memory x;
-    x[0] = tokenInfoGet.amount;
-    x[1] = x[2] = 0;
-    MapKey memory mapKey;
-    mapKey.k1 = partnerId;
-    mapKey.k2 = msg.sender;
-    mapKey.k3 = txid;
-    this.fastLend(mapKey, offcialPartnerId, tokenInfoGet.token, x);
-  }
-
   emit Borrow(partnerId, tokenInfoGet.token, tokenInfoGet.amount, tokenInfoGive.token, tokenInfoGive.amount, rateInfo._nonce, rateInfo.pack_data, msg.sender, txid, status);
   return 0;
 }
@@ -386,19 +984,6 @@ function c2cBorrow(bytes32 partnerId,//Partner platform mark（平台标记）
                     RateInfo memory rateInfo
                 ) public payable returns (uint256){
   return borrow(partnerId, tokenInfoGet, tokenInfoGive, rateInfo, true);
-}
-
-//Borrowing form fund pool rapidly（从资金池快速借款）
-  function fastBorrow(bytes32 partnerId,//Partner platform mark（平台标记）
-                TokenInfo memory tokenInfoGet,
-                TokenInfo memory tokenInfoGive,
-                RateInfo memory rateInfo
-                ) public payable returns (uint256){
-  return borrow(partnerId, tokenInfoGet, tokenInfoGive, rateInfo, false);
-}
-
-function fastLend(MapKey memory mapKey, bytes32 lenderPartnerId, address token, uint256[3] memory amountArray) public returns (uint) {
-  return lend(mapKey, lenderPartnerId, token, amountArray, false);
 }
 
 /*
@@ -486,10 +1071,10 @@ function cancelOrder(MapKey memory mapKey) public notNull(mapKey.k1) {
       }
   }
 
-    require(status == 0, "CancelOrder error");
-    delete partnerOrderBook[partnerId][borrower][hash];
-    deleteHash(partnerId, borrower, hash);
-    emit CancelOrder(partnerId, borrower, hash, msg.sender);
+  require(status == 0, "CancelOrder error");
+  delete partnerOrderBook[partnerId][borrower][hash];
+  deleteHash(partnerId, borrower, hash);
+  emit CancelOrder(partnerId, borrower, hash, msg.sender);
 
 }
 
@@ -587,12 +1172,6 @@ function c2cRepay(MapKey memory mapKey, uint256 lenderAmount, uint256 offcialFee
   return repay(mapKey, x, true);
 }
 
-function fastRepay(MapKey memory mapKey, uint256 lenderAmount) public payable returns (uint256) {
-  uint256[3] memory x;
-  x[0] = lenderAmount;
-  return repay(mapKey, x, false);
-}
-
 function liquidation(MapKey memory mapKey, uint256[3] memory amountArray, bool isC2C) internal notNull(mapKey.k1) returns (uint256) {
   bytes32 partnerId = mapKey.k1;
   address borrower = mapKey.k2;
@@ -647,10 +1226,6 @@ function c2cLiquidation(MapKey memory mapKey, uint256[3] memory amountArray) int
   return liquidation(mapKey, amountArray, true);
 }
 
-function fastLiquidation(MapKey memory mapKey, uint256[3] memory amountArray) internal returns (uint256) {
-  return liquidation(mapKey, amountArray, false);
-}
-
 /*
 Overdue mandatory return, called by the contract manager, non-borrower, non-lender call,
 borrower needs to pay the pawn asset to the borrower (principal + interest), platform partner (handling fee) and smart contract owner (handling fee),
@@ -673,9 +1248,6 @@ function forcerepay(MapKey memory mapKey, uint256[3] memory amountArray, bool is
   if (isC2C) {
     require(liquidation(mapKey, amountArray, isC2C) == 0, "forcerepay error");
     emit Forcerepay(partnerId, borrower, hash, token, msg.sender);
-  } else {
-    require(fastLiquidation(mapKey, amountArray) == 0, "forcerepay error");
-    emit FastForcerepay(partnerId, borrower, hash, token, msg.sender);
   }
 
   return 0;
@@ -689,16 +1261,6 @@ if there is remaining, the rest is returned to A.
 */
 function c2cForcerepay(MapKey memory mapKey, address token, uint256[3] memory amountArray) public returns (uint256){
   return forcerepay(mapKey, amountArray, true);
-}
-
-/*
-Overdue mandatory return, called by the contract manager, non-borrower, non-lender call,
-borrower needs to pay the pawn asset to the borrower (principal + interest), 
-if there is remaining, the rest is returned to A.
-（逾期强制归还，由合约管理者调用，非borrower，非lender调用，borrower需要支付抵押资产给出借人（本金+利息），如果还有剩余，剩余部分归还给A）
-*/
-function fastForcerepay(MapKey memory mapKey, address token, uint256[3] memory amountArray) public returns (uint256){
-  return forcerepay(mapKey, amountArray, false);
 }
 
 /*
@@ -726,9 +1288,6 @@ function closepostion(MapKey memory mapKey, uint256[3] memory amountArray, bool 
   if (isC2C) {
     liquidation(mapKey, amountArray, isC2C);
     emit Closepostion(partnerId, borrower, hash, token, address(this));
-  } else {
-    fastLiquidation(mapKey, amountArray);
-    emit FastClosepostion(partnerId, borrower, hash, token, address(this));
   }
 
   return 0;
@@ -741,15 +1300,6 @@ if there is still surplus, the rest is returned to A
 */
 function c2cClosepostion(MapKey memory mapKey, uint256[3] memory amountArray) public returns (uint256){
   return closepostion(mapKey, amountArray, true);
-}
-
-/*
-The position caused by price fluctuations, the borrower needs to pay the pawn assets to the borrower (principal + interest), 
-if there is still surplus, the rest is returned to A
-价格波动平仓，borrower需要支付抵押资产给出借人（本金+利息），如果还有剩余，剩余部分归还给A
-*/
-function fastClosepostion(MapKey memory mapKey, uint256[3] memory amountArray) public returns (uint256){
-  return closepostion(mapKey, amountArray, false);
 }
 
   //ADDITIONAL HELPERS ADDED FOR TESTING
