@@ -103,6 +103,9 @@ contract InterestRateModel {
     //loanRate
     function getLoanRate(int cash, int borrow) public returns (int y) {
         int u = getBorrowPercent(cash, borrow);
+        if (u == 0) {
+            return 0;
+        }
         if (fixidity.subtract(u, point1) < 0) {
             y = curve1(u);
         } else if (fixidity.subtract(u, point2) < 0) {
@@ -163,7 +166,11 @@ contract InterestRateModel {
     }
 
     function calculateBalance(int principal, int lastIndex, int newIndex) public returns (int y) {
-        y = fixidity.divide(fixidity.multiply(principal, newIndex), lastIndex);
+        if (principal == 0 || lastIndex == 0) {
+            y = 0;
+        } else {
+            y = fixidity.divide(fixidity.multiply(principal, newIndex), lastIndex);
+        }
     }
 
     function mul(int a, int b) public returns (int c) {
