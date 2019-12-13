@@ -41,11 +41,6 @@ contract PoolPawn {
 
     uint256 constant interestRateDenomitor = 1e18;
 
-    struct Rate {
-      int supplyRate;//存款利率
-      int demondRate;//借款利率
-    }
-
     /**
       * @notice Container for borrow balance information
       * @member principal Total balance (with accrued interest), after applying the most recent balance-changing action
@@ -59,7 +54,8 @@ contract PoolPawn {
 
     struct Market {
       uint accrualBlockNumber;
-      Rate rate;
+      int supplyRate;//存款利率
+      int demondRate;//借款利率
 
       IInterestRateModel irm;
 
@@ -211,7 +207,7 @@ function claimAdministration() public {
     function getSupplyBalance(address acc, address t) public returns (uint) {
       Balance storage supplyBalance = accountSupplySnapshot[t][acc];
 
-      int mSupplyIndex = mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(now - mkts[t].accrualBlockNumber));
+      int mSupplyIndex = mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].supplyRate), int(now - mkts[t].accrualBlockNumber));
 
       uint userSupplyCurrent = uint(mkts[t].irm.calculateBalance(int(supplyBalance.principal), int(supplyBalance.interestIndex), mSupplyIndex));
       return userSupplyCurrent;
@@ -227,7 +223,7 @@ function claimAdministration() public {
     function getBorrowBalance(address acc, address t) public returns (uint) {
       Balance storage borrowBalance = accountBorrowSnapshot[t][acc];
 
-      int mBorrowIndex = mkts[t].irm.pert(int(mkts[t].borrowIndex), int(mkts[t].rate.demondRate), int(now - mkts[t].accrualBlockNumber));
+      int mBorrowIndex = mkts[t].irm.pert(int(mkts[t].borrowIndex), int(mkts[t].demondRate), int(now - mkts[t].accrualBlockNumber));
 
       uint userBorrowCurrent = uint(mkts[t].irm.calculateBalance(int(borrowBalance.principal), int(borrowBalance.interestIndex), mBorrowIndex));
       return userBorrowCurrent;
@@ -296,7 +292,7 @@ function claimAdministration() public {
     uint lastTimestamp = mkts[t].accrualBlockNumber;
     uint blockDelta = now - lastTimestamp;
 
-    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].supplyRate), int(blockDelta)));
     tmp.userSupplyCurrent = uint(mkts[t].irm.calculateBalance(int(accountSupplySnapshot[t][msg.sender].principal), int(supplyBalance.interestIndex), int(tmp.newSupplyIndex)));
     tmp.userSupplyUpdated = tmp.userSupplyCurrent.add(amount);
     tmp.newTotalSupply = market.totalSupply.add(tmp.userSupplyUpdated).sub(supplyBalance.principal);
@@ -304,9 +300,9 @@ function claimAdministration() public {
     tmp.currentCash = getCash(t);
     tmp.updatedCash = tmp.currentCash.add(amount);
 
-    mkts[t].rate.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(mkts[t].totalBorrows));
-    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), int(mkts[t].rate.demondRate), int(blockDelta)));
-    mkts[t].rate.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(mkts[t].totalBorrows));
+    mkts[t].supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(mkts[t].totalBorrows));
+    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), int(mkts[t].demondRate), int(blockDelta)));
+    mkts[t].demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(mkts[t].totalBorrows));
 
     require(safeTransferFrom(t, msg.sender, address(this), address(this), amount) == 0, "supply error");
 
@@ -347,7 +343,7 @@ function claimAdministration() public {
 
     (tmp.accountLiquidity, tmp.accountShortfall) = calcAccountLiquidity(msg.sender);
     require(tmp.accountShortfall == 0, "can't withdraw, shortfall");
-    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].supplyRate), int(blockDelta)));
     tmp.userSupplyCurrent = uint(mkts[t].irm.calculateBalance(int(supplyBalance.principal), int(supplyBalance.interestIndex), int(tmp.newSupplyIndex)));
 
     if (requestedAmount == uint(-1)) {
@@ -366,11 +362,11 @@ function claimAdministration() public {
 
     tmp.newTotalSupply = market.totalSupply.add(tmp.userSupplyUpdated).sub(supplyBalance.principal);
 
-    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].supplyRate), int(blockDelta)));
 
-    market.rate.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(market.totalBorrows));
-    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].rate.demondRate, int(blockDelta)));
-    market.rate.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(market.totalBorrows));
+    market.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(market.totalBorrows));
+    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].demondRate, int(blockDelta)));
+    market.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(market.totalBorrows));
 
     safeTransferFrom(t, address(this), address(this), msg.sender, tmp.withdrawAmount);
 
@@ -442,7 +438,7 @@ function claimAdministration() public {
     uint lastTimestamp = mkts[t].accrualBlockNumber;
     uint blockDelta = now - lastTimestamp;
 
-    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].rate.demondRate, int(blockDelta)));
+    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].demondRate, int(blockDelta)));
     int lastIndex = int(borrowBalance.interestIndex);
     tmp.userBorrowCurrent = uint(mkts[t].irm.calculateBalance(int(borrowBalance.principal), lastIndex, int(tmp.newBorrowIndex)));
     tmp.borrowAmountWithFee = calcBorrowAmountWithFee(amount);
@@ -459,9 +455,9 @@ function claimAdministration() public {
     tmp.currentCash = getCash(t);
     tmp.updatedCash = tmp.currentCash.sub(amount);
 
-    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
-    market.rate.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
-    market.rate.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].supplyRate), int(blockDelta)));
+    market.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
+    market.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
 
     safeTransferFrom(t, address(this), address(this), msg.sender, amount);
 
@@ -483,7 +479,7 @@ function claimAdministration() public {
     uint lastTimestamp = mkts[t].accrualBlockNumber;
     uint blockDelta = now - lastTimestamp;
 
-    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].rate.demondRate, int(blockDelta)));
+    tmp.newBorrowIndex = uint(mkts[t].irm.pert(int(mkts[t].borrowIndex), mkts[t].demondRate, int(blockDelta)));
 
     int lastIndex = int(borrowBalance.interestIndex);
     tmp.userBorrowCurrent = uint(mkts[t].irm.calculateBalance(int(borrowBalance.principal), lastIndex, int(tmp.newBorrowIndex)));
@@ -499,9 +495,9 @@ function claimAdministration() public {
     tmp.currentCash = getCash(t);
     tmp.updatedCash = tmp.currentCash.add(tmp.repayAmount);
 
-    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].rate.supplyRate), int(blockDelta)));
-    market.rate.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
-    market.rate.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
+    tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].supplyRate), int(blockDelta)));
+    market.supplyRate = mkts[t].irm.getDepositRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
+    market.demondRate = mkts[t].irm.getLoanRate(int(tmp.updatedCash), int(tmp.newTotalBorrows));
 
     safeTransferFrom(t, msg.sender, address(this), address(this), tmp.repayAmount);
 
@@ -583,7 +579,6 @@ function claimAdministration() public {
 
     // cash does not change for collateral asset
 
-    //mkts[t].rate
     uint newSupplyRateMantissa_ProtocolUnderwaterAsset;
     uint newBorrowRateMantissa_ProtocolUnderwaterAsset;
 
@@ -631,10 +626,10 @@ function claimAdministration() public {
         (tmp.underwaterAssetPrice, ok) = fetchAssetPrice(assetBorrow);
         require(ok, "fail to get underwaterAssetPrice");
 
-        tmp.newBorrowIndex_UnderwaterAsset = uint(borrowMarket.irm.pert(int(borrowMarket.borrowIndex), borrowMarket.rate.demondRate, int(blockDelta)));
+        tmp.newBorrowIndex_UnderwaterAsset = uint(borrowMarket.irm.pert(int(borrowMarket.borrowIndex), borrowMarket.demondRate, int(blockDelta)));
         tmp.currentBorrowBalance_TargetUnderwaterAsset = uint(borrowMarket.irm.calculateBalance(int(borrowBalance_TargeUnderwaterAsset.principal), int(borrowBalance_TargeUnderwaterAsset.interestIndex), int(tmp.newBorrowIndex_UnderwaterAsset)));
 
-        tmp.newSupplyIndex_CollateralAsset = uint(collateralMarket.irm.pert(int(collateralMarket.supplyIndex), collateralMarket.rate.supplyRate, int(blockDelta)));
+        tmp.newSupplyIndex_CollateralAsset = uint(collateralMarket.irm.pert(int(collateralMarket.supplyIndex), collateralMarket.supplyRate, int(blockDelta)));
         tmp.currentSupplyBalance_TargetCollateralAsset = uint(collateralMarket.irm.calculateBalance(int(supplyBalance_TargetCollateralAsset.principal), int(supplyBalance_TargetCollateralAsset.interestIndex), int(tmp.newSupplyIndex_CollateralAsset)));
 
         tmp.currentSupplyBalance_LiquidatorCollateralAsset = uint(collateralMarket.irm.calculateBalance(int(supplyBalance_LiquidatorCollateralAsset.principal), int(supplyBalance_LiquidatorCollateralAsset.interestIndex), int(tmp.newSupplyIndex_CollateralAsset)));
@@ -663,10 +658,10 @@ function claimAdministration() public {
         tmp.currentCash_ProtocolUnderwaterAsset = getCash(assetBorrow);
         tmp.updatedCash_ProtocolUnderwaterAsset = tmp.currentCash_ProtocolUnderwaterAsset.add(tmp.closeBorrowAmount_TargetUnderwaterAsset);
 
-        tmp.newSupplyIndex_UnderwaterAsset = uint(borrowMarket.irm.pert(int(borrowMarket.supplyIndex), borrowMarket.rate.demondRate, int(blockDelta)));
-        borrowMarket.rate.supplyRate = borrowMarket.irm.getDepositRate(int(tmp.updatedCash_ProtocolUnderwaterAsset), int(tmp.newTotalBorrows_ProtocolUnderwaterAsset));
-        borrowMarket.rate.demondRate = borrowMarket.irm.getLoanRate(int(tmp.updatedCash_ProtocolUnderwaterAsset), int(tmp.newTotalBorrows_ProtocolUnderwaterAsset));
-        tmp.newBorrowIndex_CollateralAsset = uint(collateralMarket.irm.pert(int(collateralMarket.supplyIndex), collateralMarket.rate.demondRate, int(blockDelta)));
+        tmp.newSupplyIndex_UnderwaterAsset = uint(borrowMarket.irm.pert(int(borrowMarket.supplyIndex), borrowMarket.demondRate, int(blockDelta)));
+        borrowMarket.supplyRate = borrowMarket.irm.getDepositRate(int(tmp.updatedCash_ProtocolUnderwaterAsset), int(tmp.newTotalBorrows_ProtocolUnderwaterAsset));
+        borrowMarket.demondRate = borrowMarket.irm.getLoanRate(int(tmp.updatedCash_ProtocolUnderwaterAsset), int(tmp.newTotalBorrows_ProtocolUnderwaterAsset));
+        tmp.newBorrowIndex_CollateralAsset = uint(collateralMarket.irm.pert(int(collateralMarket.supplyIndex), collateralMarket.demondRate, int(blockDelta)));
 
         tmp.updatedSupplyBalance_TargetCollateralAsset = tmp.currentSupplyBalance_TargetCollateralAsset.sub(tmp.seizeSupplyAmount_TargetCollateralAsset);
         tmp.updatedSupplyBalance_LiquidatorCollateralAsset = tmp.currentSupplyBalance_LiquidatorCollateralAsset.add(tmp.seizeSupplyAmount_TargetCollateralAsset);
