@@ -78,7 +78,7 @@ contract PoolPawn {
     mapping (address => mapping (address => Balance)) public accountSupplySnapshot;//tokenContract->address(usr)->SupplySnapshot
     mapping (address => mapping (address => Balance)) public accountBorrowSnapshot;//tokenContract->address(usr)->BorrowSnapshot
 
-    mapping (address => Market) mkts;//tokenAddress->Market
+    mapping (address => Market) public mkts;//tokenAddress->Market
     address[] public collateralTokens;//抵押币种
     address[] public loanTokens;//借贷币种
     IOracle public oracleInstance;
