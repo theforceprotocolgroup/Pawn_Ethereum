@@ -20,15 +20,13 @@ contract IOracle {
 }
 
 contract IInterestRateModel {
-  function getLoanRate(int cash, int borrow) public returns (int y);
-  function getDepositRate(int cash, int borrow) public returns (int y);
+  function getLoanRate(int cash, int borrow) public view returns (int y);
+  function getDepositRate(int cash, int borrow) public view returns (int y);
 
-  function calculateBalance(int principal, int lastIndex, int newIndex) public returns (int y);
-  function calculateInterestIndex(int Index, int r, int t) public returns (int y);
-  function pert(int principal, int r, int t) public returns (int y);
-  function continuousCompoundingInterest(int r, int t) public returns (int y);
-  function getNewReserve(int oldReserve, int cash, int borrow, int blockDelta) public returns (int y);
-  function ert(int r, int t) public returns (int y);
+  function calculateBalance(int principal, int lastIndex, int newIndex) public view returns (int y);
+  function calculateInterestIndex(int Index, int r, int t) public view returns (int y);
+  function pert(int principal, int r, int t) public view returns (int y);
+  function getNewReserve(int oldReserve, int cash, int borrow, int blockDelta) public view returns (int y);
 }
 
 contract PoolPawn {
@@ -76,7 +74,6 @@ contract PoolPawn {
 
     mapping (address => Market) public mkts;//tokenAddress->Market
     address[] public collateralTokens;//抵押币种
-    address[] public loanTokens;//借贷币种
     IOracle public oracleInstance;
 
     uint constant initialInterestIndex = 10 ** 18;
@@ -204,7 +201,7 @@ function claimAdministration() public {
     //m:market, a:account
     //i(n,m)=i(n-1,m)*(1+rm*t)
     //return P*(i(n,m)/i(n-1,a))
-    function getSupplyBalance(address acc, address t) public returns (uint) {
+    function getSupplyBalance(address acc, address t) public view returns (uint) {
       Balance storage supplyBalance = accountSupplySnapshot[t][acc];
 
       int mSupplyIndex = mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].supplyRate), int(now - mkts[t].accrualBlockNumber));
@@ -213,14 +210,14 @@ function claimAdministration() public {
       return userSupplyCurrent;
     }
 
-    function getSupplyBalanceInUSD(address who, address t) public returns (uint) {
+    function getSupplyBalanceInUSD(address who, address t) public view returns (uint) {
       return getPriceForAssetAmount(t, getSupplyBalance(who, t));
     }
 
     //m:market, a:account
     //i(n,m)=i(n-1,m)*(1+rm*t)
     //return P*(i(n,m)/i(n-1,a))
-    function getBorrowBalance(address acc, address t) public returns (uint) {
+    function getBorrowBalance(address acc, address t) public view returns (uint) {
       Balance storage borrowBalance = accountBorrowSnapshot[t][acc];
 
       int mBorrowIndex = mkts[t].irm.pert(int(mkts[t].borrowIndex), int(mkts[t].demondRate), int(now - mkts[t].accrualBlockNumber));
@@ -229,27 +226,27 @@ function claimAdministration() public {
       return userBorrowCurrent;
     }
 
-    function getBorrowBalanceInUSD(address who, address t) public returns (uint) {
+    function getBorrowBalanceInUSD(address who, address t) public view returns (uint) {
       return getPriceForAssetAmount(t, getBorrowBalance(who, t));
     }
 
     // BorrowBalance * collateral ratio
-    function getBorrowBalanceLeverage(address who, address t) public returns (uint) {
+    function getBorrowBalanceLeverage(address who, address t) public view returns (uint) {
       return getBorrowBalanceInUSD(who,t).mul(mkts[t].minPledgeRate);
     }
 
     //Gets USD token values of supply and borrow balances
-    function calcAccountTokenValuesInternal(address who, address t) internal returns (uint, uint) {
+    function calcAccountTokenValuesInternal(address who, address t) internal view returns (uint, uint) {
       return (getSupplyBalanceInUSD(who, t), getBorrowBalanceInUSD(who, t));
     }
 
     //Gets USD token values of supply and borrow balances
-    function calcAccountTokenValuesLeverageInternal(address who, address t) internal returns (uint, uint) {
+    function calcAccountTokenValuesLeverageInternal(address who, address t) internal view returns (uint, uint) {
       return (getSupplyBalanceInUSD(who, t), getBorrowBalanceLeverage(who, t));
     }
 
     //Gets USD all token values of supply and borrow balances
-    function calcAccountAllTokenValuesLeverageInternal(address who) internal returns (uint, uint) {
+    function calcAccountAllTokenValuesLeverageInternal(address who) internal view returns (uint, uint) {
       uint length = collateralTokens.length;
       uint sumSupplies;
       uint sumBorrowLeverage;
@@ -262,7 +259,7 @@ function claimAdministration() public {
       return (sumSupplies, sumBorrowLeverage);
     }
 
-    function calcAccountLiquidity(address who) internal returns (uint, uint) {
+    function calcAccountLiquidity(address who) internal view returns (uint, uint) {
       uint sumSupplies;
       uint sumBorrowsLeverage;//sumBorrows* collateral ratio
       (sumSupplies, sumBorrowsLeverage) = calcAccountAllTokenValuesLeverageInternal(who);
@@ -394,7 +391,7 @@ function claimAdministration() public {
     uint startingBalance;
   }
 
-  function min(uint a, uint b) pure internal returns (uint) {
+  function min(uint a, uint b) internal view returns (uint) {
     if (a < b) {
         return a;
     } else {
@@ -513,7 +510,7 @@ function claimAdministration() public {
   //shortfall/(price*(minPledgeRate-liquidationDiscount-1))
   //liquidationDiscount是清算折扣, in QIAN, 无清算折扣，但有罚金，罚金是8%，无清算折扣
   //underwaterAsset is borrowAsset
-  function calcDiscountedRepayToEvenAmount(address targetAccount, address underwaterAsset, uint underwaterAssetPrice) internal returns (uint) {
+  function calcDiscountedRepayToEvenAmount(address targetAccount, address underwaterAsset, uint underwaterAssetPrice) internal view returns (uint) {
     (, uint shortfall) = calcAccountLiquidity(targetAccount);
     uint minPledgeRate = mkts[underwaterAsset].minPledgeRate;
     uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
