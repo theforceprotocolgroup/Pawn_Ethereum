@@ -1,10 +1,14 @@
 pragma solidity ^0.5.13;
 
 import "./FixidityLib.sol";
+import "./ExponentLib.sol";
+import "./LogarithmLib.sol";
 
 
 contract InterestRateModel {
-    using FixidityLib for FixidityLib.Fixidity;
+	using FixidityLib for FixidityLib.Fixidity;
+	using ExponentLib for FixidityLib.Fixidity;
+	using LogarithmLib for FixidityLib.Fixidity;
 
 	FixidityLib.Fixidity public fixidity;
     address public admin;
@@ -113,7 +117,7 @@ contract InterestRateModel {
 
     //r为年利率,t为秒数,p*e^(rt)
     function pert(int principal, int r, int t) public view returns (int y) {
-        if (t == 0) {
+        if (t == 0 || r == 0) {
             y = principal;
         } else {
             int r1 = fixidity.log_e(fixidity.add(r, fixidity.fixed_1));//r1 = ln(r+1)
