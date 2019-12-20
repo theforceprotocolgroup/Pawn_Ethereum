@@ -122,7 +122,7 @@ contract InterestRateModel {
         } else {
             int r1 = fixidity.log_e(fixidity.add(r, fixidity.fixed_1));//r1 = ln(r+1)
             int r2 = fixidity.divide(r1, 60*60*24*365*1e18);//r2=r1/(60*60*24*365)
-            int interest = fixidity.power_e(fixidity.multiply(r2, t));//e^(r2*t)
+            int interest = fixidity.power_e(fixidity.multiply(r2, t*1e18));//e^(r2*t)
             y = fixidity.multiply(principal, interest);//返回本息
         }
     }
