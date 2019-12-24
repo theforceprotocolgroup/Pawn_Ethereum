@@ -72,6 +72,27 @@ contract PoolPawn {
     mapping (address => mapping (address => Balance)) public accountSupplySnapshot;//tokenContract->address(usr)->SupplySnapshot
     mapping (address => mapping (address => Balance)) public accountBorrowSnapshot;//tokenContract->address(usr)->BorrowSnapshot
 
+    //user table
+    mapping (uint256 => address) public accounts;
+    mapping (address => uint256) public indexes;
+    uint256 public index = 1;
+    function join(address who) internal {
+      if (indexes[who] == 0) {
+        accounts[index] = who;
+        indexes[who] = index;
+        ++index;
+      }
+    }
+
+    event SupplyPawnLog(address usr, address t, uint amount, uint beg, uint end);
+    event WithdrawPawnLog(address usr, address t, uint amount, uint beg, uint end);
+    event BorrowPawnLog(address usr, address t, uint amount, uint beg, uint end);
+    event RepayFastBorrowLog(address usr, address t, uint amount, uint beg, uint end);
+    event LiquidateBorrowPawnLog(
+      address usr, address tBorrow, uint endBorrow,
+      address liquidator, address tCol, uint endCol);
+
+
     mapping (address => Market) public mkts;//tokenAddress->Market
     address[] public collateralTokens;//抵押币种
     IOracle public oracleInstance;
@@ -308,8 +329,14 @@ function claimAdministration() public {
     mkts[t].totalSupply = tmp.newTotalSupply;
     mkts[t].accrualBlockNumber = now;
 
+    tmp.startingBalance = supplyBalance.principal;
     supplyBalance.principal = tmp.userSupplyUpdated;
     supplyBalance.interestIndex = tmp.newSupplyIndex;
+
+    join(msg.sender);
+
+    emit SupplyPawnLog(msg.sender, t, amount, tmp.startingBalance, tmp.userSupplyUpdated);
+    return 0;
   }
 
   struct WithdrawIR {
@@ -339,7 +366,7 @@ function claimAdministration() public {
     uint blockDelta = now - lastTimestamp;
 
     (tmp.accountLiquidity, tmp.accountShortfall) = calcAccountLiquidity(msg.sender);
-    require(tmp.accountShortfall == 0, "can't withdraw, shortfall");
+    require(tmp.accountLiquidity > 0 && tmp.accountShortfall == 0, "can't withdraw, shortfall");
     tmp.newSupplyIndex = uint(mkts[t].irm.pert(int(mkts[t].supplyIndex), int(mkts[t].supplyRate), int(blockDelta)));
     tmp.userSupplyCurrent = uint(mkts[t].irm.calculateBalance(int(supplyBalance.principal), int(supplyBalance.interestIndex), int(tmp.newSupplyIndex)));
 
@@ -372,8 +399,12 @@ function claimAdministration() public {
     market.supplyIndex = tmp.newSupplyIndex;
     market.borrowIndex = tmp.newBorrowIndex;
 
+    tmp.startingBalance = supplyBalance.principal;
     supplyBalance.principal = tmp.userSupplyUpdated;
     supplyBalance.interestIndex = tmp.newSupplyIndex;
+    
+    emit WithdrawPawnLog(msg.sender, t, tmp.withdrawAmount, tmp.startingBalance, tmp.userSupplyUpdated);
+    return 0;
   }
 
   struct PayBorrowIR {
@@ -444,7 +475,7 @@ function claimAdministration() public {
     tmp.newTotalBorrows = market.totalBorrows.add(tmp.userBorrowUpdated).sub(borrowBalance.principal);
 
     (tmp.accountLiquidity, tmp.accountShortfall) = calcAccountLiquidity(msg.sender);
-    require(tmp.accountShortfall == 0, "can't borrow, shortfall");
+    require(tmp.accountLiquidity > 0 && tmp.accountShortfall == 0, "can't borrow, shortfall");
 
     tmp.usdValueOfBorrowAmountWithFee = getPriceForAssetAmountMulCollatRatio(t, tmp.borrowAmountWithFee);
     require(tmp.usdValueOfBorrowAmountWithFee <= tmp.accountLiquidity, "can't borrow, without enough value");
@@ -463,8 +494,12 @@ function claimAdministration() public {
     market.supplyIndex = tmp.newSupplyIndex;
     market.borrowIndex = tmp.newBorrowIndex;
 
+    tmp.startingBalance = borrowBalance.principal;
     borrowBalance.principal = tmp.userBorrowUpdated;
     borrowBalance.interestIndex = tmp.newBorrowIndex;
+
+    emit BorrowPawnLog(msg.sender, t, amount, tmp.startingBalance, tmp.userBorrowUpdated);
+    return 0;
   }
 
   //t: token
@@ -503,8 +538,13 @@ function claimAdministration() public {
     market.supplyIndex = tmp.newSupplyIndex;
     market.borrowIndex = tmp.newBorrowIndex;
 
+    tmp.startingBalance = borrowBalance.principal;
     borrowBalance.principal = tmp.userBorrowUpdated;
     borrowBalance.interestIndex = tmp.newBorrowIndex;
+
+    emit RepayFastBorrowLog(msg.sender, t, tmp.repayAmount, tmp.startingBalance, tmp.userBorrowUpdated);
+
+    return 0;
   }
 
   //shortfall/(price*(minPledgeRate-liquidationDiscount-1))
@@ -687,6 +727,13 @@ function claimAdministration() public {
         tmp.startingSupplyBalance_LiquidatorCollateralAsset = supplyBalance_LiquidatorCollateralAsset.principal; // save for use in event
         supplyBalance_LiquidatorCollateralAsset.principal = tmp.updatedSupplyBalance_LiquidatorCollateralAsset;
         supplyBalance_LiquidatorCollateralAsset.interestIndex = tmp.newSupplyIndex_CollateralAsset;
+
+        emit LiquidateBorrowPawnLog(tmp.targetAccount, assetBorrow,
+        tmp.updatedBorrowBalance_TargetUnderwaterAsset,
+        tmp.liquidator,
+        tmp.assetCollateral,
+        tmp.updatedSupplyBalance_TargetCollateralAsset
+        );
 
         return 0;
   }
