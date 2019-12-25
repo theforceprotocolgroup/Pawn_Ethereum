@@ -86,7 +86,7 @@ contract InterestRateModel {
     function getLoanRate(int cash, int borrow) public view returns (int y) {
         int u = getBorrowPercent(cash, borrow);
         if (u == 0) {
-            return 0;
+            return minInterest;
         }
         if (fixidity.subtract(u, point1) < 0) {
             y = curve1(u);
