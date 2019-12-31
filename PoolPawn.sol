@@ -202,7 +202,7 @@ function claimAdministration() public {
       require(address(oracleInstance) != address(0), "oracle not set");
       (uint price, bool ok) = fetchAssetPrice(t);
       if (ok) {
-        return usdValue.div(price).mul(ONE_ETH);
+        return usdValue.mul(ONE_ETH).div(price);
       }
       return uint(-1);
     }
@@ -689,7 +689,7 @@ function claimAdministration() public {
 
         tmp.seizeSupplyAmount_TargetCollateralAsset = calcAmountSeize(assetBorrow, tmp.underwaterAssetPrice, tmp.collateralPrice, tmp.closeBorrowAmount_TargetUnderwaterAsset);
 
-        require(getBalanceOf(assetBorrow, tmp.liquidator) <= tmp.closeBorrowAmount_TargetUnderwaterAsset, "insufficient balance");
+        require(getBalanceOf(assetBorrow, tmp.liquidator) >= tmp.closeBorrowAmount_TargetUnderwaterAsset, "insufficient balance");
         tmp.updatedBorrowBalance_TargetUnderwaterAsset = tmp.currentBorrowBalance_TargetUnderwaterAsset.sub(tmp.closeBorrowAmount_TargetUnderwaterAsset);
         tmp.newTotalBorrows_ProtocolUnderwaterAsset = borrowMarket.totalBorrows.add(tmp.updatedBorrowBalance_TargetUnderwaterAsset).sub(borrowBalance_TargeUnderwaterAsset.principal);
 
