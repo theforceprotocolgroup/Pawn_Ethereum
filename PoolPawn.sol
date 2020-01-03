@@ -555,7 +555,7 @@ function claimAdministration() public {
     uint minPledgeRate = mkts[underwaterAsset].minPledgeRate;
     uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
     uint gap = minPledgeRate.sub(liquidationDiscount).sub(1 ether);
-    return shortfall.div(underwaterAssetPrice.mul(gap).div(ONE_ETH));
+    return shortfall.mul(ONE_ETH).div(underwaterAssetPrice.mul(gap).div(ONE_ETH));
   }
 
   //[supplyCurrent / (1 + liquidationDiscount)] * (Oracle price for the collateral / Oracle price for the borrow)
@@ -563,7 +563,7 @@ function claimAdministration() public {
   function calcDiscountedBorrowDenominatedCollateral(address underwaterAsset, uint underwaterAssetPrice, uint collateralPrice, uint supplyCurrent_TargetCollateralAsset) public view returns (uint) {
     uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
     uint onePlusLiquidationDiscount = (ONE_ETH).add(liquidationDiscount);
-    uint supplyCurrentTimesOracleCollateral = supplyCurrent_TargetCollateralAsset.mul(collateralPrice).div(ONE_ETH);
+    uint supplyCurrentTimesOracleCollateral = supplyCurrent_TargetCollateralAsset.mul(collateralPrice);
     return supplyCurrentTimesOracleCollateral.div(onePlusLiquidationDiscount.mul(underwaterAssetPrice).div(ONE_ETH));
   }
 
