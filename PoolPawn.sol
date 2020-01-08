@@ -67,6 +67,8 @@ contract PoolPawn {
 
       uint minPledgeRate;//最小质押率
       uint liquidationDiscount;//清算折扣
+
+      uint decimals;//币种的最小精度
     }
 
     mapping (address => mapping (address => Balance)) public accountSupplySnapshot;//tokenContract->address(usr)->SupplySnapshot
@@ -128,7 +130,7 @@ contract PoolPawn {
       mkts[t].liquidationDiscount = liquidationDiscount;
     }
 
-    function initCollateralMarket(address t, address irm, address oracle) public onlyAdmin {
+    function initCollateralMarket(address t, address irm, address oracle, uint decimals) public onlyAdmin {
       if (address(oracleInstance) == address(0)) {
         setOracle(oracle);
       }
@@ -144,6 +146,10 @@ contract PoolPawn {
 
       if (mkts[t].borrowIndex == 0) {
         mkts[t].borrowIndex = initialInterestIndex;
+      }
+
+      if (mkts[t].decimals == 0) {
+        mkts[t].decimals = decimals;
       }
     }
 
@@ -175,6 +181,10 @@ function claimAdministration() public {
       mkts[token].accrualBlockNumber = now;
     }
 
+    function setDecimals(address t, uint decimals) public onlyAdmin {
+      mkts[t].decimals = decimals;
+    }
+
     function setOracle(address oracle) public onlyAdmin {
       oracleInstance = IOracle(oracle);
     }
@@ -192,19 +202,15 @@ function claimAdministration() public {
     function getPriceForAssetAmount(address asset, uint assetAmount) public view returns (uint) {
       require(address(oracleInstance) != address(0), "oracle not set");
       (uint price, bool ok) = fetchAssetPrice(asset);
-      if (ok) {
-        return price.mul(assetAmount).div(ONE_ETH);
-      }
-      return 0;
+      require(ok && price > 0, "invalid token price");
+      return price.mul(assetAmount).div(10**mkts[asset].decimals);
     }
 
     function getAssetAmountForValue(address t, uint usdValue) public view returns (uint) {
       require(address(oracleInstance) != address(0), "oracle not set");
       (uint price, bool ok) = fetchAssetPrice(t);
-      if (ok) {
-        return usdValue.mul(ONE_ETH).div(price);
-      }
-      return uint(-1);
+      require(ok && price > 0, "invalid token price");
+      return usdValue.mul(10**mkts[t].decimals).div(price);
     }
 
     //合约里的现金
@@ -638,6 +644,7 @@ function claimAdministration() public {
 
 
   function liquidateBorrowPawn(address targetAccount, address assetBorrow, address assetCollateral, uint requestedAmountClose) public returns (uint) {
+        require(msg.sender != targetAccount, "can't self-liquidate");
         LiquidateIR memory tmp;
         // Copy these addresses into the struct for use with `emitLiquidationEvent`
         // We'll use tmp.liquidator inside this function for clarity vs using msg.sender.
