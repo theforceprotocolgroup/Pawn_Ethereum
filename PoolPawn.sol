@@ -280,8 +280,8 @@ function claimAdministration() public {
 
       for (uint i = 0; i < length; i++) {
         (uint supplyValue, uint borrowsLeverage) = calcAccountTokenValuesLeverageInternal(who, collateralTokens[i]);
-        sumSupplies += supplyValue;
-        sumBorrowLeverage += borrowsLeverage;
+        sumSupplies = sumSupplies.add(supplyValue);
+        sumBorrowLeverage = sumBorrowLeverage.add(borrowsLeverage);
       }
       return (sumSupplies, sumBorrowLeverage);
     }
@@ -561,25 +561,37 @@ function claimAdministration() public {
     uint minPledgeRate = mkts[underwaterAsset].minPledgeRate;
     uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
     uint gap = minPledgeRate.sub(liquidationDiscount).sub(1 ether);
-    return shortfall.mul(ONE_ETH).div(underwaterAssetPrice.mul(gap).div(ONE_ETH));
+    return shortfall.mul(10**mkts[underwaterAsset].decimals).div(underwaterAssetPrice.mul(gap).div(ONE_ETH));//underwater asset amount
   }
 
   //[supplyCurrent / (1 + liquidationDiscount)] * (Oracle price for the collateral / Oracle price for the borrow)
   //[supplyCurrent * (Oracle price for the collateral)] / [ (1 + liquidationDiscount) * (Oracle price for the borrow) ]
-  function calcDiscountedBorrowDenominatedCollateral(address underwaterAsset, uint underwaterAssetPrice, uint collateralPrice, uint supplyCurrent_TargetCollateralAsset) public view returns (uint) {
+  function calcDiscountedBorrowDenominatedCollateral(address underwaterAsset, address collateralAsset, uint underwaterAssetPrice, uint collateralPrice, uint supplyCurrent_TargetCollateralAsset) public view returns (uint) {
     uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
     uint onePlusLiquidationDiscount = (ONE_ETH).add(liquidationDiscount);
-    uint supplyCurrentTimesOracleCollateral = supplyCurrent_TargetCollateralAsset.mul(collateralPrice);
-    return supplyCurrentTimesOracleCollateral.div(onePlusLiquidationDiscount.mul(underwaterAssetPrice).div(ONE_ETH));
+    uint supplyCurrentTimesOracleCollateral = supplyCurrent_TargetCollateralAsset.mul(collateralPrice);//10^8*10^18, supplyCurrent_TargetCollateralAsset is IMBTC, 10^26
+    uint res = supplyCurrentTimesOracleCollateral.div(onePlusLiquidationDiscount.mul(underwaterAssetPrice).div(ONE_ETH));//underwaterAsset amout
+    res = res.mul(10 ** mkts[underwaterAsset].decimals);
+    res = res.div(10 ** mkts[collateralAsset].decimals);
+    return res;
+
   }
 
   //closeBorrowAmount_TargetUnderwaterAsset * (1+liquidationDiscount) * priceBorrow/priceCollateral
   //underwaterAssetPrice * (1+liquidationDiscount) *closeBorrowAmount_TargetUnderwaterAsset) / collateralPrice
   //underwater is borrow
-  function calcAmountSeize(address underwaterAsset, uint underwaterAssetPrice, uint collateralPrice, uint closeBorrowAmount_TargetUnderwaterAsset) public view returns (uint) {
+  function calcAmountSeize(address underwaterAsset, address collateralAsset, uint underwaterAssetPrice, uint collateralPrice, uint closeBorrowAmount_TargetUnderwaterAsset) public view returns (uint) {
     uint liquidationDiscount = mkts[underwaterAsset].liquidationDiscount;
     uint onePlusLiquidationDiscount = (ONE_ETH).add(liquidationDiscount);
-    return underwaterAssetPrice.mul(onePlusLiquidationDiscount).mul(closeBorrowAmount_TargetUnderwaterAsset).div(collateralPrice).div(ONE_ETH);
+    uint res = underwaterAssetPrice.mul(onePlusLiquidationDiscount);
+    res = res.mul(closeBorrowAmount_TargetUnderwaterAsset);
+    res = res.div(collateralPrice);
+    res = res.div(ONE_ETH);
+    res = res.mul(10**mkts[collateralAsset].decimals);
+    res = res.div(10**mkts[underwaterAsset].decimals);
+    return res;
+
+
   }
 
   struct LiquidateIR {
