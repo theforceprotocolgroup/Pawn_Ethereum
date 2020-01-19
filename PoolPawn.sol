@@ -93,6 +93,7 @@ contract PoolPawn {
     event LiquidateBorrowPawnLog(
       address usr, address tBorrow, uint endBorrow,
       address liquidator, address tCol, uint endCol);
+    event WithdrawPawnEquityLog(address t, uint equityAvailableBefore, uint amount, address owner);
 
 
     mapping (address => Market) public mkts;//tokenAddress->Market
@@ -777,4 +778,12 @@ function safeTransferFrom(address token, address owner, address spender, address
   return 0;
 }
 
+  function withdrawPawnEquity(address t, uint amount) public onlyAdmin returns (uint) {
+    uint cash = getCash(t);
+    uint equity = cash.add(mkts[t].totalBorrows).sub(mkts[t].totalSupply);
+    require(equity >= amount, "insufficient equity amount");
+    safeTransferFrom(t, address(this), address(this), admin, amount);
+    emit WithdrawPawnEquityLog(t, equity, amount, admin);
+    return 0;
+  }
 }
