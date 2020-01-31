@@ -17,7 +17,7 @@ Pawn的去中心化借贷服务，是基于以太坊、RSK等主流公链开发�
 
 ### 2.1 Product Elements and Rules
 
-Table 1 Decentralized peer-to-peer pledge loan product on Ethereum
+<b>Table 1 Decentralized peer-to-peer pledge loan product on Ethereum</b>
 
 | <b>Elements</b> | <b>Rules</b> |
 | ------ | ------ |
@@ -54,20 +54,20 @@ Figure 1 shared order book</div>
 
 ### 2.1 产品要素和规则
 
-表1 基于以太坊的去中心化点对点借贷产品
+<b>表1 基于以太坊的去中心化点对点借贷产品</b>
 
 | <b>要素</b> | <b>规则</b> |
 | ------ | ------ |
-| <b>借币币种</b> | USDT(ERC-20)、DAI、QIAN（原力协议稳定币，即将推出） 
-| <b>质押币种</b> | ETH、BNB、FOR、WBTC、BAT、HT、MKR、LRC等 
-| <b>质押率</b> | 180%（=质押币市值/借币市值）
+| <b>借币币种</b> | USDT(ERC-20)、DAI、QIAN（原力协议稳定币，即将推出） |
+| <b>质押币种</b> | ETH、BNB、FOR、WBTC、BAT、HT、MKR、LRC等 |
+| <b>质押率</b> | 180%（=质押币市值/借币市值） |
 | <b>补仓线</b> | 150% |
 | <b>平仓线</b> | 120% |
-| <b>日利率</b> | 万1到万8，借币用户自主设置 
-| <b>借款期限</b> | 7、14、30、60、90天，借币用户自主选择 
-| <b>最低借款数量</b> | 等值 10 USD 起
-| <b>手续费</b> | 见备注
-| <b>订单有限期</b> | 若订单在5个自然日内未成交，订单将被系统取消。
+| <b>日利率</b> | 万1到万8，借币用户自主设置 |
+| <b>借款期限</b> | 7、14、30、60、90天，借币用户自主选择 |
+| <b>最低借款数量</b> | 等值 10 USD 起 |
+| <b>手续费</b> | 见备注 |
+| <b>订单有限期</b> | 若订单在5个自然日内未成交，订单将被系统取消。 |
 
 <b>备注：</b>
 
@@ -87,7 +87,7 @@ Figure 1 shared order book</div>
 
 <br>
 
-## 3. Fast Lending Product
+## 3. Pooling (Fast) Lending Product
 
 ### 3.1 Design Ideas
 
@@ -179,9 +179,30 @@ Therefore, assuming that the user borrowing amount is BA, the borrowing time is 
 
 The deposit interest rate and interest calculation formula are similar.
 
+### 3.7 Product Elements and Rules
+
+<b>Table 2 Pooling (Fast) Lending Product Introduction</b>
+
+| <b>Elements</b> | <b>Rules</b> |
+| ------ | ------ |
+| <b>Lending currency</b> | USDT (ERC-20), USDC, QIAN, imBTC, FOR, HT, BAT |
+| <b>Pledge currency</b> | USDT (ERC-20), USDC, QIAN, imBTC, FOR, HT, BAT |
+| <b>Pledge rate</b> | USDT, USDC and QIAN are 105%; FOR, HT and BAT are 200%; imBTC is 130% |
+| <b>Clearing discount</b> | USDT, USDC and QIAN are 2%; FOR, HT and BAT are 10%; imBTC is 5% |
+| <b>Margin Call</b> | User can make margin call at any time |
+| <b>Close position line</b> | When the sum of the user's pledge assets is less than the sum of all the borrowed assets multiplied by the corresponding pledge rate, the user's pledge assets can be closed |
+| <b>Annual interest rate for Lending</b> | 1.5% ~ 20% |
+| <b>Annual interest rate for deposit</b> | 0 ~ 18%, the annual interest rate for deposit is determined by the annual interest rate of lending and the utilization rate, which is *annual interest rate of lending × utilization rate × 0.9* |
+| <b>Minimum borrowing amount</b> | None |
+| <b>Loan Period</b> | Due on demand |
+| <b>Handling Fee</b> | None |
+| <b>Order deadline</b> | Always valid |
+| <b>Maximum amount of each currency in the contract can be borrowed</b> | = [(Sum of all deposit assets - Sum of all borrowed assets multiplied by corresponding pledge rate) ÷ Minimum pledge rate of corresponding currency] ÷ corresponding currency price |
+| <b>Maximum amount for each currency on the page</b> | = Maximum amount for each currency in the contract × (1 - Currency clearing discount) |
+
 <br>
 
-## 3. 集中借贷产品
+## 3. 集中（快速）借贷产品
 
 ### 3.1 设计思路
 
@@ -273,6 +294,27 @@ Pawn dApp采用一套算法控制的利率模型，基于供求关系的变化�
 
 存款利率和利息计算公式类似。
 
+### 3.7 产品要素和规则
+
+<b>表2 Pawn集中（快速）借贷产品介绍</b>
+
+| <b>要素</b> | <b>规则</b> |
+| ------ | ------ |
+| <b>借币币种</b> | USDT(ERC-20)、USDC、QIAN、imBTC、FOR、HT、BAT |
+| <b>质押币种</b> | USDT(ERC-20)、USDC、QIAN、imBTC、FOR、HT、BAT |
+| <b>质押率</b> | USDT、USDC和QIAN为105%，FOR、HT和BAT为200%，imBTC为130% |
+| <b>清算折扣</b> | USDT、USDC和QIAN为2%，FOR、HT和BAT为10%，imBTC为5% |
+| <b>补仓线</b> | 用户随时可以进行补仓 |
+| <b>平仓线</b> | 用户存币资产之和小于所有借币资产乘以对应质押率之和时，可对用户借币资产进行平仓 |
+| <b>借款年利率</b> | 1.5% ~ 20% |
+| <b>存款年利率</b> | 0 ~ 18%，存款年利率由借款年利率和使用率决定，为 *借款年利率 × 使用率 × 0.9* |
+| <b>最低借款数量</b> | 无 |
+| <b>借款期限</b> | 随存随取，随借随还 |
+| <b>手续费</b> | 暂无 |
+| <b>订单有限期</b> | 一直有效 |
+| <b>合约中每一币种用户可借最大数量</b> | = [（所有存币资产之和 - 所有借币资产乘以对应质押率之和） ÷ 对应币种最小质押率 ] ÷ 对应币种价格 |
+| <b>页面中每一币种用户可借最大数量</b> | = 合约中每一币种用户可借最大数量 ×（1 - 币种清算折扣） |
+
 <br>
 
 ## 4. General Module
@@ -348,7 +390,7 @@ Figure 2 Global Lending Network</div>
 
 Pawn offers a variety of access methods for different partners.
 
-<b> Table 2 Pawn cooperation mode </b>
+<b>Table 3 Pawn cooperation mode</b>
 
 | Access method | Account mode | Development needs | Target partners |
 | ------------- | ------------- | ------------- | ------------- |
@@ -376,7 +418,7 @@ In order to practice the human inclusive finance enterprise, Pawn will establish
 
 ### 5.2 合作节点
 
-Pawn通过合作节点搭建全球借贷网络，实现全球借贷资源共享。所有合作节点可以享受手续费分润。
+Pawn在未来将开放API/SDK，通过合作节点搭建全球借贷网络，实现全球借贷资源共享。所有合作节点可以享受手续费分润。
 
 - **平台合作节点**：数字货币钱包、数字货币交易所及其他流量平台等；
 - **区域合作节点**：区域性金融机构和个人（需符合当地法律法规）。
@@ -393,7 +435,7 @@ Pawn通过合作节点搭建全球借贷网络，实现全球借贷资源共享�
 
 Pawn提供多种接入方式，方便各合作方快速接入。
 
-<b>表2 Pawn合作模式</b>
+<b>表3 Pawn合作模式</b>
 
 | 接入方式 | 账户模式 | 是否需要开发 | 适合对象 |
 | ------------- | ------------- | ------------- | ------------- |
@@ -413,7 +455,7 @@ Pawn提供多种接入方式，方便各合作方快速接入。
 
 Developed with principals of practicality and usability, Pawn is committed to building a fully decentralized global lending network. The progress of the development is expected to be as follows:
 
-<b> Table 3 Decentralized lending product development plan </b>
+<b>Table 4 Decentralized lending product development plan</b>
 
 | Time schedule | Content | Details |
 | ------------- | ------------- | ------------- |
@@ -430,7 +472,7 @@ Developed with principals of practicality and usability, Pawn is committed to bu
 
 Pawn以实用和落地为准绳开发，致力于推动完全去中心化全球借贷网络搭建。预计研发进度如下：
 
-<b>表3 去中心化借贷产品研发计划</b>
+<b>表4 去中心化借贷产品研发计划</b>
 
 | 时间计划 | 内容 | 详情 |
 | ------------- | ------------- | ------------- |
