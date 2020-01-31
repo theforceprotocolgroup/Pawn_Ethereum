@@ -17,7 +17,7 @@ Pawn的去中心化借贷服务，是基于以太坊、RSK等主流公链开发�
 
 ### 2.1 Product Elements and Rules
 
-Table 1 Decentralized peer-to-peer pledge loan product on Ethereum
+<b>Table 1 Decentralized peer-to-peer pledge loan product on Ethereum</b>
 
 | <b>Elements</b> | <b>Rules</b> |
 | ------ | ------ |
@@ -54,7 +54,7 @@ Figure 1 shared order book</div>
 
 ### 2.1 产品要素和规则
 
-表1 基于以太坊的去中心化点对点借贷产品
+<b>表1 基于以太坊的去中心化点对点借贷产品</b>
 
 | <b>要素</b> | <b>规则</b> |
 | ------ | ------ |
@@ -87,7 +87,7 @@ Figure 1 shared order book</div>
 
 <br>
 
-## 3. Fast Lending Product
+## 3. Pooling (Fast) Lending Product
 
 ### 3.1 Design Ideas
 
@@ -178,6 +178,27 @@ Therefore, assuming that the user borrowing amount is BA, the borrowing time is 
 </div>
 
 The deposit interest rate and interest calculation formula are similar.
+
+### 3.7 Product Elements and Rules
+
+<b>Table 2 Pooling (Fast) Lending Product Introduction</b>
+
+| <b>Elements</b> | <b>Rules</b> |
+| ------ | ------ |
+| <b>Lending currency</b> | USDT (ERC-20), USDC, QIAN, imBTC, FOR, HT, BAT |
+| <b>Pledge currency</b> | USDT (ERC-20), USDC, QIAN, imBTC, FOR, HT, BAT |
+| <b>Pledge rate</b> | USDT, USDC and QIAN are 105%; FOR, HT and BAT are 200%; imBTC is 130% |
+| <b>Clearing discount</b> | USDT, USDC and QIAN are 2%; FOR, HT and BAT are 10%; imBTC is 5% |
+| <b>Margin Call</b> | User can make margin call at any time |
+| <b>Close position line</b> | When the sum of the user's pledge assets is less than the sum of all the borrowed assets multiplied by the corresponding pledge rate, the user's pledge assets can be closed |
+| <b>Annual interest rate for Lending</b> | 1.5% ~ 20% |
+| <b>Annual interest rate for deposit</b> | 0 ~ 18%, the annual interest rate for deposit is determined by the annual interest rate of lending and the utilization rate, which is *annual interest rate of lending × utilization rate × 0.9* |
+| <b>Minimum borrowing amount</b> | None |
+| <b>Loan Period</b> | Due on demand |
+| <b>Handling Fee</b> | None |
+| <b>Order deadline</b> | Always valid |
+| <b>Maximum amount of each currency in the contract can be borrowed</b> | = [(Sum of all deposit assets - Sum of all borrowed assets multiplied by corresponding pledge rate) ÷ Minimum pledge rate of corresponding currency] ÷ corresponding currency price |
+| <b>Maximum amount for each currency on the page</b> | = Maximum amount for each currency in the contract × (1 - Currency clearing discount) |
 
 <br>
 
