@@ -296,7 +296,7 @@ Pawn dApp采用一套算法控制的利率模型，基于供求关系的变化�
 
 ### 3.7 产品要素和规则
 
-表2 Pawn集中（快速）借贷产品介绍
+<b>表2 Pawn集中（快速）借贷产品介绍</b>
 
 | <b>要素</b> | <b>规则</b> |
 | ------ | ------ |
@@ -390,7 +390,7 @@ Figure 2 Global Lending Network</div>
 
 Pawn offers a variety of access methods for different partners.
 
-<b> Table 2 Pawn cooperation mode </b>
+<b>Table 3 Pawn cooperation mode</b>
 
 | Access method | Account mode | Development needs | Target partners |
 | ------------- | ------------- | ------------- | ------------- |
@@ -455,7 +455,7 @@ Pawn提供多种接入方式，方便各合作方快速接入。
 
 Developed with principals of practicality and usability, Pawn is committed to building a fully decentralized global lending network. The progress of the development is expected to be as follows:
 
-<b> Table 3 Decentralized lending product development plan </b>
+<b>Table 4 Decentralized lending product development plan</b>
 
 | Time schedule | Content | Details |
 | ------------- | ------------- | ------------- |
