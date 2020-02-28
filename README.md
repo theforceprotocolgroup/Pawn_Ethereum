@@ -459,8 +459,8 @@ Developed with principals of practicality and usability, Pawn is committed to bu
 
 | Time schedule | Content | Details |
 | ------------- | ------------- | ------------- |
-| Online already | iOS-based centralized lending products | MVP products |
-| Online already | EOS-based decentralized lending products | MVP Products |
+| December 2018 | iOS-based centralized lending products | MVP products |
+| March 2019 | EOS-based decentralized lending products | MVP Products |
 | October 2019 | Decentralized lending products based on ETH | Forming a lending network which support dApp and H5 models |
 | November 2019 | Decentralized lending product based on ETH | Complete fast lending development |
 | December 2019 | ETH-based decentralized lending product | User experience optimization, support for API models, and improved decentralized governance architecture |
@@ -477,8 +477,8 @@ Pawn以实用和落地为准绳开发，致力于推动完全去中心化全球�
 
 | 时间计划 | 内容 | 详情 |
 | ------------- | ------------- | ------------- |
-| 已上线 | 基于iOS的中心化借贷产品 | MVP验证性产品 |
-| 已上线 | 基于EOS的去中心化借贷产品 | MVP验证性产品 |
+| 2018年12月 | 基于iOS的中心化借贷产品 | MVP验证性产品 |
+| 2019年3月 | 基于EOS的去中心化借贷产品 | MVP验证性产品 |
 | 2019年10月 | 基于ETH的去中心化借贷产品 | 形成借贷网络，支持dApp、H5模式 |
 | 2019年11月 | 基于ETH的去中心化借贷产品 | 完成集中借贷开发 |
 | 2019年12月 | 基于ETH的去中心化借贷产品 | 用户体验优化、支持API模式、完善去中心治理架构 |
