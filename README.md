@@ -464,7 +464,8 @@ Developed with principals of practicality and usability, Pawn is committed to bu
 | October 2019 | Decentralized lending products based on ETH | Forming a lending network which support dApp and H5 models |
 | November 2019 | Decentralized lending product based on ETH | Complete fast lending development |
 | December 2019 | ETH-based decentralized lending product | User experience optimization, support for API models, and improved decentralized governance architecture |
-| End of 2020 | Decentralized lending products based on The Force Protocol public financial blockchain | Support for all major cryptoassets |
+| June 2020 | Multi-platform decentralized lending product | Lunch lending service on several public blockchain platforms |
+| TBD | Decentralized lending products based on The Force Protocol network | Support for major cryptoassets cross-chain lending across different public blockchain platforms |
 
 <br>
 
@@ -481,4 +482,5 @@ Pawn以实用和落地为准绳开发，致力于推动完全去中心化全球�
 | 2019年10月 | 基于ETH的去中心化借贷产品 | 形成借贷网络，支持dApp、H5模式 |
 | 2019年11月 | 基于ETH的去中心化借贷产品 | 完成集中借贷开发 |
 | 2019年12月 | 基于ETH的去中心化借贷产品 | 用户体验优化、支持API模式、完善去中心治理架构 |
-| 预计2020年底 | 基于原力协议金融公链的去中心化借贷产品 | 支持所有主流加密资产 |
+| 2020年6月 | 多平台去中心化借贷产品 | 在多个主流的区块链平台启动借贷服务 |
+| 待定 | 基于原力协议网络的去中心化借贷产品 | 支持主流加密资产在不同公链平台直接的跨链借贷 |
