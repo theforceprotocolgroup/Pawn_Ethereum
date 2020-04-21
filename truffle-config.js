@@ -51,6 +51,16 @@ module.exports = {
       gas: 7500000,
       timeoutBlocks: 1000,
     },
+    mainnet: {
+      network_id: '1',
+      provider: () => new HDWalletProvider(
+        process.env.DEPLOYER_PRIVATE_KEY,
+        'https://mainnet.infura.io/v3/3988726e52214208a238061b6200c65f'
+      ),
+      gasPrice: 10000000000, // 10 gwei
+      gas: 7500000,
+      timeoutBlocks: 1000,
+    },
   },
   plugins: [
     'truffle-plugin-verify'

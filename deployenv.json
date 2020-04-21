@@ -1,0 +1,140 @@
+{
+    "ropsten": {
+        "tokens": [
+            {
+                "symbol": "HT",
+                "address": "0xF6F61D80082877D4F282E0aa9D5C4de77247f8bc",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            },
+            {
+                "symbol": "WBTC",
+                "address": "0x0701e645c64De92672869BeC6B187eCBE6Bed4Da",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "8"
+            },
+            {
+                "symbol": "ZRX",
+                "address": "0xEd6fEf57ab47F77eD6Da0bCFCB771c6F00e76046",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            },
+            {
+                "symbol": "USDT",
+                "address": "0xa4f6c459185cc98c48305f88859f31ea2064e58e",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "6"
+            },
+            {
+                "symbol": "USDC",
+                "address": "0xe9986AEB82edf96bb1F3d70979894Fd8c513b8C4",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "6"
+            },
+            {
+                "symbol": "DAI",
+                "address": "0xBCb75dfBF59901e85DeC524e42d1d5a6B2d40992",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            }
+        ]
+    },
+    "rinkeby": {
+        "tokens": [
+            {
+                "symbol": "HT",
+                "address": "0xc82277e21c1569cc153e093d6462cb2262568ab9",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            },
+            {
+                "symbol": "IMBTC",
+                "address": "0xd6a42B6a9389EceBcFFb29A354e165b8dA3C2552",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "8"
+            },
+            {
+                "symbol": "ZRX",
+                "address": "0xd86e720646b82bcc014801af5fd8722d89db712e",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            },
+            {
+                "symbol": "USDT",
+                "address": "0xaA7e28750d8BF25B86E06172f745B4a37B2C628f",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "6"
+            },
+            {
+                "symbol": "USDC",
+                "address": "0xBc497c75630e2a824faC879E5dD2E2bB5EE9aDa5",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "6"
+            },
+            {
+                "symbol": "DAI",
+                "address": "0x907c4c8c42767f6e73b86881b78433f08779279a",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            }
+        ]
+    },
+	"mainnet": {
+        "tokens": [
+            {
+                "symbol": "HT",
+                "address": "0x6f259637dcD74C767781E37Bc6133cd6A68aa161",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            },
+            {
+                "symbol": "IMBTC",
+                "address": "0x3212b29E33587A00FB1C83346f5dBFA69A458923",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "8"
+            },
+            {
+                "symbol": "ZRX",
+                "address": "0xe41d2489571d322189246dafa5ebde1f4699f498",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            },
+            {
+                "symbol": "USDT",
+                "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "6"
+            },
+            {
+                "symbol": "USDC",
+                "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "6"
+            },
+            {
+                "symbol": "DAI",
+                "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+                "discount": "85",
+                "deposit_multiple": "4",
+                "decimals": "18"
+            }
+        ]
+    }
+}
